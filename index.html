@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>INFLATION EXPLORER — Slow-Roll Cosmology Console</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<!-- html2pdf for PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 /* ============================================================
    DESIGN SYSTEM — Scientific Console / Phosphor Terminal
@@ -35,6 +37,75 @@
   --mono:        'Share Tech Mono', 'DM Mono', monospace;
   --display:     'Oxanium', sans-serif;
 }
+
+/* ── THEMES ───────────────────────────────────────────── */
+body.theme-light {
+  --bg:          #f4f7f9;
+  --bg2:         #e8eef2;
+  --bg3:         #ffffff;
+  --panel:       #ffffff;
+  --border:      #d1dce5;
+  --border2:     #b0c4d4;
+  --text:        #2d3a45;
+  --text-dim:    #5a7080;
+  --text-bright: #141b22;
+  --amber:       #d88000;
+  --cyan:        #0090a8;
+  --green:       #109050;
+  --red:         #d03020;
+}
+body.theme-classic {
+  --bg:          #ffffff;
+  --bg2:         #f0f0f0;
+  --bg3:         #fafafa;
+  --panel:       #ffffff;
+  --border:      #cccccc;
+  --border2:     #aaaaaa;
+  --text:        #000000;
+  --text-dim:    #555555;
+  --text-bright: #000000;
+  --amber:       #666666;
+  --cyan:        #333333;
+  --green:       #000000;
+  --red:         #000000;
+  --amber-dim:   #999999;
+  --amber-glow:  #444444;
+}
+
+/* UX Suggestion: A modal container allows better interaction with dense scientific plots. */
+/* ── PLOT MODAL ───────────────────────────────────────── */
+.plot-modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+}
+.plot-modal-overlay.visible { display: flex; }
+.plot-modal-content {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  width: 90vw; height: 90vh; padding: 20px; position: relative; display: flex; flex-direction: column;
+}
+.plot-modal-close {
+  position: absolute; top: 12px; right: 20px; cursor: pointer;
+  font-size: 1.5rem; color: var(--text-dim); line-height: 1; z-index: 2001;
+}
+.plot-modal-close:hover { color: var(--red); }
+.plot-modal-body { flex: 1; width: 100%; height: 100%; position: relative; }
+
+/* ── EXTRA UI ─────────────────────────────────────────── */
+.btn-icon {
+  background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+  border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 0.8rem;
+  transition: 0.2s;
+}
+.btn-icon:hover { color: var(--amber); border-color: var(--amber); }
+.plot-header { display: flex; align-items: center; justify-content: space-between; }
+.plot-controls { display: flex; gap: 6px; }
+
+.manual-input {
+  width: 60px; background: transparent; border: 1px solid var(--border2);
+  color: var(--cyan); font-family: var(--mono); font-size: 0.75rem; text-align: right;
+  border-radius: 3px; outline: none; padding: 2px 4px; transition: 0.2s;
+}
+.manual-input:focus { border-color: var(--amber); box-shadow: 0 0 3px rgba(232,160,32,0.3); }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -248,6 +319,7 @@ select option { background: #0f1a24; }
 input[type="range"] {
   flex: 1;
   -webkit-appearance: none;
+  appearance: none;
   height: 3px;
   background: linear-gradient(90deg, var(--amber) var(--pct, 50%), var(--border2) var(--pct, 50%));
   border-radius: 2px;
@@ -257,6 +329,7 @@ input[type="range"] {
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   width: 12px; height: 12px;
   border-radius: 50%;
   background: var(--amber);
@@ -396,7 +469,7 @@ input[type="range"]::-webkit-slider-thumb:active {
   gap: 12px;
 }
 
-.eq-item {}
+.eq-item { display: flex; flex-direction: column; justify-content: flex-end; }
 .eq-title {
   font-size: 0.62rem;
   color: var(--text-dim);
@@ -624,6 +697,14 @@ input[type="range"]::-webkit-slider-thumb:active {
   <span>COMPUTING SLOW-ROLL DYNAMICS</span>
 </div>
 
+<!-- PLOT MODAL -->
+<div class="plot-modal-overlay" id="plotModal">
+  <div class="plot-modal-content">
+    <div class="plot-modal-close" onclick="closePlotModal()">×</div>
+    <div id="plotModalBody" class="plot-modal-body"></div>
+  </div>
+</div>
+
 <!-- ── HEADER ──────────────────────────────────────────────── -->
 <header>
   <div class="header-left">
@@ -631,6 +712,13 @@ input[type="range"]::-webkit-slider-thumb:active {
     <div class="subtitle">Slow-Roll Cosmology Console · M<sub>pl</sub>=1</div>
   </div>
   <div class="header-right">
+    <!-- Theme Switcher -->
+    <select id="themeSelect" onchange="changeTheme()" style="width: auto; padding: 4px 8px; font-size: 0.7rem; margin-right: 16px; background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer;">
+      <option value="dark">Dark Theme</option>
+      <option value="light">Light Theme</option>
+      <option value="classic">Classic Theme</option>
+    </select>
+    
     <div class="status-led"></div>
     <div class="status-text" id="statusText">READY</div>
   </div>
@@ -693,13 +781,13 @@ input[type="range"]::-webkit-slider-thumb:active {
       <div class="field-label">φ range</div>
       <div class="slider-row">
         <span class="slider-label" style="font-style:normal;font-size:0.72rem">φ<sub>min</sub></span>
-        <input type="range" id="phiMin" min="0.001" max="3" step="0.01" value="0.01" oninput="updateSliderFill(this);scheduleUpdate()"/>
-        <span class="slider-value" id="phiMinVal">0.01</span>
+        <input type="range" id="phiMin" min="0.001" max="3" step="0.01" value="0.01" oninput="syncManual('phiMin');scheduleUpdate()"/>
+        <input type="number" class="manual-input" id="phiMinVal" value="0.01" step="0.01" onchange="syncSlider('phiMin');scheduleUpdate()">
       </div>
       <div class="slider-row">
         <span class="slider-label" style="font-style:normal;font-size:0.72rem">φ<sub>max</sub></span>
-        <input type="range" id="phiMax" min="3" max="60" step="0.5" value="25" oninput="updateSliderFill(this);scheduleUpdate()"/>
-        <span class="slider-value" id="phiMaxVal">25.0</span>
+        <input type="range" id="phiMax" min="3" max="60" step="0.5" value="25" oninput="syncManual('phiMax');scheduleUpdate()"/>
+        <input type="number" class="manual-input" id="phiMaxVal" value="25.0" step="0.5" onchange="syncSlider('phiMax');scheduleUpdate()">
       </div>
 
       <div class="field-label" style="margin-top:10px">
@@ -765,7 +853,15 @@ input[type="range"]::-webkit-slider-thumb:active {
       <div class="btn-row">
         <button class="btn btn-primary" onclick="scheduleUpdate()">⟳ Recompute</button>
         <button class="btn" onclick="resetDefaults()">↺ Reset</button>
-        <button class="btn" onclick="exportData()">⬇ Export</button>
+        <div style="position:relative; display:inline-block;" id="downloadDropdownContainer">
+          <button class="btn" onclick="toggleDownloadMenu()">⬇ Download</button>
+          <div id="downloadMenu" style="display:none; position:absolute; bottom:100%; left:0; background:var(--bg3); border:1px solid var(--border); border-radius:4px; padding:4px; z-index:100; min-width: 100px; margin-bottom: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+            <div style="cursor:pointer; padding:6px 10px; font-size:0.7rem; color:var(--text); border-bottom:1px solid var(--border2);" onclick="exportData()">CSV Data</div>
+            <div style="cursor:pointer; padding:6px 10px; font-size:0.7rem; color:var(--text); border-bottom:1px solid var(--border2);" onclick="downloadAllGraphs('png')">Graphs (PNG)</div>
+            <div style="cursor:pointer; padding:6px 10px; font-size:0.7rem; color:var(--text); border-bottom:1px solid var(--border2);" onclick="downloadAllGraphs('jpg')">Graphs (JPG)</div>
+            <div style="cursor:pointer; padding:6px 10px; font-size:0.7rem; color:var(--text);" onclick="downloadAllGraphs('pdf')">Report (PDF)</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -808,6 +904,10 @@ input[type="range"]::-webkit-slider-thumb:active {
             <div class="plot-title">INFLATON POTENTIAL V(φ)</div>
             <div class="plot-desc">CMB-normalized · log scale optional</div>
           </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="toggleLinLog('plotV')" title="Toggle Lin/Log">⬍</button>
+            <button class="btn-icon" onclick="expandPlot('plotV', 'INFLATON POTENTIAL V(φ)')" title="Enlarge Graph">⤢</button>
+          </div>
         </div>
         <div class="plot-body"><div id="plotV" style="height:280px"></div></div>
       </div>
@@ -818,6 +918,10 @@ input[type="range"]::-webkit-slider-thumb:active {
           <div>
             <div class="plot-title">SLOW-ROLL PARAMETERS ε(φ), η(φ)</div>
             <div class="plot-desc">Inflation requires ε,|η|≪1</div>
+          </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="toggleLinLog('plotSR')" title="Toggle Lin/Log">⬍</button>
+            <button class="btn-icon" onclick="expandPlot('plotSR', 'SLOW-ROLL PARAMETERS ε(φ), η(φ)')" title="Enlarge Graph">⤢</button>
           </div>
         </div>
         <div class="plot-body"><div id="plotSR" style="height:280px"></div></div>
@@ -830,6 +934,10 @@ input[type="range"]::-webkit-slider-thumb:active {
             <div class="plot-title">NUMBER OF E-FOLDS N(φ)</div>
             <div class="plot-desc">Integrated from end of inflation</div>
           </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="toggleLinLog('plotN')" title="Toggle Lin/Log">⬍</button>
+            <button class="btn-icon" onclick="expandPlot('plotN', 'NUMBER OF E-FOLDS N(φ)')" title="Enlarge Graph">⤢</button>
+          </div>
         </div>
         <div class="plot-body"><div id="plotN" style="height:280px"></div></div>
       </div>
@@ -841,6 +949,10 @@ input[type="range"]::-webkit-slider-thumb:active {
             <div class="plot-title">PHASE PORTRAIT  dφ/dN vs φ</div>
             <div class="plot-desc">Slow-roll trajectory in field space</div>
           </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="toggleLinLog('plotPhase')" title="Toggle Lin/Log">⬍</button>
+            <button class="btn-icon" onclick="expandPlot('plotPhase', 'PHASE PORTRAIT  dφ/dN vs φ')" title="Enlarge Graph">⤢</button>
+          </div>
         </div>
         <div class="plot-body"><div id="plotPhase" style="height:280px"></div></div>
       </div>
@@ -851,6 +963,10 @@ input[type="range"]::-webkit-slider-thumb:active {
           <div>
             <div class="plot-title">nₛ–r PLANE WITH PLANCK 2018 CONSTRAINTS</div>
             <div class="plot-desc">Confidence contours + reference model trajectories</div>
+          </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="toggleLinLog('plotNsR')" title="Toggle Lin/Log">⬍</button>
+            <button class="btn-icon" onclick="expandPlot('plotNsR', 'nₛ–r PLANE')" title="Enlarge Graph">⤢</button>
           </div>
         </div>
         <div class="plot-body"><div id="plotNsR" style="height:340px"></div></div>
@@ -869,6 +985,10 @@ input[type="range"]::-webkit-slider-thumb:active {
           <div>
             <div class="plot-title">PRIMORDIAL POWER SPECTRA</div>
             <div class="plot-desc">CMB-normalized scalar 𝒫ℛ and tensor 𝒫T vs e-folds N</div>
+          </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="toggleLinLog('plotPS')" title="Toggle Lin/Log">⬍</button>
+            <button class="btn-icon" onclick="expandPlot('plotPS', 'PRIMORDIAL POWER SPECTRA')" title="Enlarge Graph">⤢</button>
           </div>
         </div>
         <div class="plot-body"><div id="plotPS" style="height:260px"></div></div>
@@ -994,7 +1114,7 @@ const PRESETS = {
     phiMin: 0.01, phiMax: 25,
   },
   gaussian_bump: {
-    expr: "V0 * (1 - exp(-alpha*phi))**2 + A * exp(-(phi - phi0)**2 / (2*sigma**2))",
+    expr: "V0 * (1 - exp(-alpha*phi))**2 + A * exp(-1 * (phi - phi0)**2 / (2*sigma**2))",
     latex: "V(φ) = V₀(1−e^{−αφ})² + A·e^{−(φ−φ₀)²/2σ²}",
     params: {
       V0:    { min:1e-12, max:1e-8,  val:1.5e-9,  log:true,  label:"V₀" },
@@ -1098,6 +1218,136 @@ function extractParams(exprStr) {
     if (!reserved.has(t) && !seen.has(t)) { seen.add(t); result.push(t); }
   });
   return result;
+}
+
+// ── UI AND MODAL LOGIC ────────────────────────────────────────
+function changeTheme() {
+  const t = document.getElementById("themeSelect").value;
+  document.body.className = t === "dark" ? "" : "theme-" + t;
+  // Note: Plotly doesn't automatically restyle on CSS variable change 
+  // without a full re-render, but for our lightweight approach, the main UI updates.
+  // UX Suggestion: For a fully responsive theme, we could add a loop calling Plotly.relayout 
+  // on all plots to change plot_bgcolor and paper_bgcolor, but it's optional here.
+}
+
+function syncManual(id) {
+  const val = document.getElementById(id).value;
+  document.getElementById(id+"Val").value = val;
+}
+
+function syncSlider(id) {
+  const val = document.getElementById(id+"Val").value;
+  document.getElementById(id).value = val;
+}
+
+function toggleLinLog(plotId) {
+  const plot = document.getElementById(plotId);
+  if (!plot || !plot.layout || !plot.layout.yaxis) return;
+  const currentType = plot.layout.yaxis.type;
+  const newType = currentType === 'log' ? 'linear' : 'log';
+  Plotly.relayout(plotId, { 'yaxis.type': newType });
+}
+
+let activeModalPlot = null;
+function expandPlot(plotId, title) {
+  const modal = document.getElementById("plotModal");
+  const modalBody = document.getElementById("plotModalBody");
+  modalBody.innerHTML = ""; // clear
+  
+  // Clone element to move Plotly instance cleanly or just recreate
+  const container = document.createElement("div");
+  container.style.width = "100%";
+  container.style.height = "100%";
+  modalBody.appendChild(container);
+  
+  // To avoid destroying the original, we recreate the plot in the modal
+  const origPlot = document.getElementById(plotId);
+  if (origPlot && origPlot.data && origPlot.layout) {
+    const layout = JSON.parse(JSON.stringify(origPlot.layout));
+    layout.title = { text: title || "Enlarged Plot", font: { color: "#7a9aaa", size: 16 } };
+    layout.margin = { l: 60, r: 40, t: 60, b: 60 };
+    Plotly.newPlot(container, origPlot.data, layout, PLOTLY_CONFIG);
+  }
+  
+  modal.classList.add("visible");
+  activeModalPlot = plotId;
+}
+
+function closePlotModal() {
+  document.getElementById("plotModal").classList.remove("visible");
+  document.getElementById("plotModalBody").innerHTML = "";
+  activeModalPlot = null;
+}
+
+// ── DOWNLOAD LOGIC ────────────────────────────────────────────
+function toggleDownloadMenu() {
+  const menu = document.getElementById("downloadMenu");
+  menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
+// UX Suggestion: Close menu when clicking outside
+document.addEventListener("click", (e) => {
+  const container = document.getElementById("downloadDropdownContainer");
+  if (container && !container.contains(e.target)) {
+    document.getElementById("downloadMenu").style.display = "none";
+  }
+});
+
+async function downloadAllGraphs(format) {
+  document.getElementById("downloadMenu").style.display = "none";
+  let plots = ["plotV", "plotSR", "plotN", "plotPhase", "plotNsR", "plotPS"];
+  
+  if (format === 'png' || format === 'jpg') {
+    for (let id of plots) {
+      const gd = document.getElementById(id);
+      if (gd && gd.data) {
+        await Plotly.downloadImage(gd, { format: format === 'jpg' ? 'jpeg' : 'png', width: 1200, height: 800, filename: id });
+      }
+    }
+  } else if (format === 'pdf') {
+    // Requires html2pdf library
+    if (typeof html2pdf === "undefined") {
+      alert("PDF generation library not loaded. Ensure internet connection for CDN.");
+      return;
+    }
+    // We create a temporary hidden container with all plots cloned
+    const tempContainer = document.createElement("div");
+    tempContainer.style.width = "800px";
+    tempContainer.style.background = "#080b0e"; // force dark bg for pdf
+    tempContainer.style.padding = "20px";
+    // Header
+    const title = document.createElement("h1");
+    title.style.color = "#e8a020";
+    title.style.fontFamily = "sans-serif";
+    title.innerText = "Inflation Explorer Report: " + state.preset;
+    tempContainer.appendChild(title);
+    
+    // Convert and append each plot to images to put in PDF
+    for (let id of plots) {
+      const gd = document.getElementById(id);
+      if (gd && gd.data) {
+        try {
+          const imgUrl = await Plotly.toImage(gd, { format: 'png', width: 800, height: 500 });
+          const img = document.createElement("img");
+          img.src = imgUrl;
+          img.style.width = "100%";
+          img.style.marginBottom = "20px";
+          tempContainer.appendChild(img);
+        } catch (e) { console.warn("Failed to capture plot", id, e); }
+      }
+    }
+    document.body.appendChild(tempContainer);
+    // Print PDF
+    const opt = {
+      margin: 10,
+      filename: `InflationLab_Report_${state.preset}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(tempContainer).save().then(() => {
+      document.body.removeChild(tempContainer);
+    });
+  }
 }
 
 // ── NUMERICAL DIFFERENTIATION ────────────────────────────────
@@ -1391,8 +1641,6 @@ function buildParamPanel() {
     const sliderVal = isLog ? Math.log10(curVal)           : curVal;
     const step      = def.step || ((sliderMax - sliderMin) / 200);
 
-    const displayVal = formatParamVal(curVal, isLog);
-
     const row = document.createElement("div");
     row.className = "slider-row";
     row.innerHTML = `
@@ -1403,7 +1651,13 @@ function buildParamPanel() {
              value="${sliderVal}"
              data-param="${name}" data-log="${isLog}"
              oninput="onParamSlide(this)"/>
-      <span class="slider-value" id="sv_${name}">${displayVal}</span>`;
+      <input type="number"
+             class="manual-input"
+             id="sv_${name}"
+             value="${curVal}"
+             step="any"
+             data-param="${name}" data-log="${isLog}"
+             onchange="onParamInput(this)"/>`;
 
     panel.appendChild(row);
     // Set initial fill
@@ -1427,18 +1681,24 @@ function onParamSlide(input) {
   const raw   = parseFloat(input.value);
   const val   = isLog ? Math.pow(10, raw) : raw;
   state.params[name] = val;
-  document.getElementById("sv_" + name).textContent = formatParamVal(val, isLog);
+  // Sync the numeric input field
+  document.getElementById("sv_" + name).value = isLog ? val.toExponential(4) : val.toPrecision(5);
   updateSliderFill(input);
   scheduleUpdate();
 }
 
-function formatParamVal(val, isLog) {
-  if (isLog) {
-    if (Math.abs(val) < 1e-3 || Math.abs(val) > 999) {
-      return val.toExponential(2);
-    }
-  }
-  return val.toPrecision(4);
+function onParamInput(input) {
+  const name  = input.dataset.param;
+  const isLog = input.dataset.log === "true";
+  let val = parseFloat(input.value);
+  if (isNaN(val)) return;
+  state.params[name] = val;
+  // Sync the slider
+  const slider = document.getElementById("sl_" + name);
+  const sliderVal = isLog ? (val > 0 ? Math.log10(val) : slider.min) : val;
+  slider.value = sliderVal;
+  updateSliderFill(slider);
+  scheduleUpdate();
 }
 
 function updateSliderFill(input) {
