@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>INFLATION EXPLORER — Slow-Roll Cosmology Console</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<style>
+/* ============================================================
+   DESIGN SYSTEM — Scientific Console / Phosphor Terminal
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Oxanium:wght@300;400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap');
+
+:root {
+  --bg:          #080b0e;
+  --bg2:         #0c1014;
+  --bg3:         #111820;
+  --panel:       #0f161d;
+  --border:      #1c2d3a;
+  --border2:     #253545;
+  --amber:       #e8a020;
+  --amber-dim:   #7a5010;
+  --amber-glow:  #f0c060;
+  --cyan:        #20c0d0;
+  --cyan-dim:    #0a4850;
+  --green:       #30d080;
+  --green-dim:   #0a3820;
+  --red:         #e05040;
+  --red-dim:     #3a1510;
+  --blue:        #4090e0;
+  --purple:      #9060d0;
+  --text:        #c8d8e0;
+  --text-dim:    #5a7080;
+  --text-bright: #e8f0f4;
+  --mono:        'Share Tech Mono', 'DM Mono', monospace;
+  --display:     'Oxanium', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 13px; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image:
+    linear-gradient(rgba(32,192,208,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(32,192,208,0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── SCANLINE overlay ─────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.06) 2px,
+    rgba(0,0,0,0.06) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── HEADER ───────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(90deg, rgba(15,22,29,0.98) 0%, rgba(12,16,20,0.98) 100%);
+  position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(8px);
+}
+
+.header-left {
+  display: flex; align-items: baseline; gap: 16px;
+}
+
+.logo {
+  font-family: var(--display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  text-shadow: 0 0 20px rgba(232,160,32,0.4);
+}
+
+.logo span {
+  color: var(--cyan);
+  text-shadow: 0 0 20px rgba(32,192,208,0.4);
+}
+
+.subtitle {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.header-right {
+  display: flex; gap: 8px; align-items: center;
+}
+
+.status-led {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: blink 2.4s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+
+.status-text { font-size: 0.72rem; color: var(--green); letter-spacing: 0.08em; }
+
+/* ── LAYOUT ───────────────────────────────────────────── */
+.app-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 53px);
+}
+
+/* ── SIDEBAR ──────────────────────────────────────────── */
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 0;
+  overflow-y: auto;
+  height: calc(100vh - 53px);
+  position: sticky; top: 53px;
+}
+
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: var(--bg2); }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.section-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  font-family: var(--display);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  background: rgba(32,192,208,0.04);
+  display: flex; align-items: center; gap: 8px;
+}
+
+.section-header .icon { color: var(--amber); }
+
+.section-body { padding: 14px 16px; }
+
+/* ── PRESET SELECT ────────────────────────────────────── */
+.field-label {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+select, input[type="text"] {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text-bright);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  padding: 8px 10px;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  appearance: none;
+  cursor: pointer;
+}
+
+select:focus, input[type="text"]:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px rgba(232,160,32,0.15), inset 0 1px 3px rgba(0,0,0,0.3);
+}
+
+select option { background: #0f1a24; }
+
+.custom-expr-wrap { position: relative; }
+
+.custom-expr-wrap input {
+  padding-right: 36px;
+  font-size: 0.88rem;
+}
+
+.expr-clear {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  color: var(--text-dim); cursor: pointer; font-size: 1rem;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.expr-clear:hover { color: var(--amber); }
+
+.latex-display {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(232,160,32,0.06);
+  border-left: 2px solid var(--amber-dim);
+  border-radius: 0 4px 4px 0;
+  font-size: 0.78rem;
+  color: var(--amber-glow);
+  min-height: 30px;
+  word-break: break-all;
+  transition: all 0.2s;
+}
+
+/* ── SLIDERS ──────────────────────────────────────────── */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.slider-label {
+  font-size: 0.78rem;
+  color: var(--amber-glow);
+  min-width: 52px;
+  font-style: italic;
+}
+
+.slider-value {
+  min-width: 68px;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--cyan);
+  font-family: var(--mono);
+}
+
+input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 3px;
+  background: linear-gradient(90deg, var(--amber) var(--pct, 50%), var(--border2) var(--pct, 50%));
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 6px rgba(232,160,32,0.5);
+  transition: transform 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:active {
+  transform: scale(1.4);
+}
+
+/* ── BUTTONS ──────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.18s;
+  text-transform: uppercase;
+}
+
+.btn:hover { border-color: var(--amber); color: var(--amber); background: rgba(232,160,32,0.07); }
+.btn:active { transform: scale(0.97); }
+
+.btn-primary {
+  background: rgba(232,160,32,0.12);
+  border-color: var(--amber-dim);
+  color: var(--amber-glow);
+}
+.btn-primary:hover { background: rgba(232,160,32,0.22); border-color: var(--amber); }
+
+.btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ── OBSERVABLES PANEL ────────────────────────────────── */
+.obs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.obs-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+
+.obs-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--amber), transparent);
+  opacity: 0.4;
+}
+
+.obs-card.ok  { border-color: var(--green-dim); }
+.obs-card.ok::before  { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+.obs-card.bad { border-color: var(--red-dim); }
+.obs-card.bad::before { background: linear-gradient(90deg, transparent, var(--red), transparent); }
+
+.obs-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+
+.obs-value {
+  font-family: var(--display);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-bright);
+  line-height: 1;
+}
+
+.obs-card.ok  .obs-value { color: var(--green); }
+.obs-card.bad .obs-value { color: var(--red); }
+
+.obs-sub {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+
+/* ── TOOLTIP ──────────────────────────────────────────── */
+.tip {
+  position: relative;
+  display: inline-block;
+  cursor: help;
+  color: var(--cyan);
+  font-size: 0.7rem;
+}
+.tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%; bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  background: #0a1a24;
+  border: 1px solid var(--cyan-dim);
+  color: var(--text);
+  font-size: 0.72rem;
+  padding: 7px 10px;
+  border-radius: 5px;
+  white-space: pre-wrap;
+  width: 220px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 999;
+  line-height: 1.5;
+}
+.tip:hover::after { opacity: 1; }
+
+/* ── MAIN CONTENT ─────────────────────────────────────── */
+.main-content { overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+/* ── EQUATION BAR ─────────────────────────────────────── */
+.equation-bar {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.eq-item {}
+.eq-title {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 4px;
+}
+.eq-expr {
+  font-size: 0.88rem;
+  color: var(--amber-glow);
+  font-family: var(--mono);
+}
+
+/* ── PLOT GRID ────────────────────────────────────────── */
+.plot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.plot-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.25s;
+}
+
+.plot-card:hover { border-color: var(--border2); }
+
+.plot-card.full-width { grid-column: 1 / -1; }
+
+.plot-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.plot-title {
+  font-family: var(--display);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-bright);
+}
+
+.plot-desc {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.plot-body { padding: 4px; }
+
+/* ── INFO / DESCRIPTION ───────────────────────────────── */
+.info-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 24px;
+}
+
+.info-panel h2 {
+  font-family: var(--display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  margin-bottom: 12px;
+}
+
+.info-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.info-block h3 {
+  font-size: 0.72rem;
+  color: var(--cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+  font-family: var(--display);
+}
+
+.info-block p {
+  font-size: 0.78rem;
+  color: var(--text);
+  line-height: 1.65;
+}
+
+.info-block code {
+  background: rgba(232,160,32,0.1);
+  color: var(--amber-glow);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: var(--mono);
+}
+
+/* ── ERROR ────────────────────────────────────────────── */
+.error-msg {
+  display: none;
+  background: rgba(224,80,64,0.1);
+  border: 1px solid var(--red-dim);
+  color: var(--red);
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  margin-top: 8px;
+}
+.error-msg.visible { display: block; }
+
+/* ── LOADING ──────────────────────────────────────────── */
+.computing-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(8,11,14,0.7);
+  z-index: 500;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 12px;
+  font-family: var(--display);
+  color: var(--amber);
+  letter-spacing: 0.15em;
+  font-size: 0.85rem;
+}
+.computing-overlay.visible { display: flex; }
+
+.spinner {
+  width: 36px; height: 36px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--amber);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── SCAN LINE ANIMATION ──────────────────────────────── */
+.plot-body { position: relative; }
+
+/* ── PLANCK LEGEND ────────────────────────────────────── */
+.planck-legend {
+  display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  padding: 6px 16px;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+}
+.planck-legend span { display: flex; align-items: center; gap: 5px; }
+.planck-legend .dot {
+  width: 10px; height: 10px; border-radius: 2px;
+}
+
+/* ── TABS ─────────────────────────────────────────────── */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+.tab {
+  padding: 7px 14px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  transition: color 0.2s, border-color 0.2s;
+}
+.tab.active { color: var(--amber); border-bottom-color: var(--amber); }
+.tab:hover:not(.active) { color: var(--text); }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── DIVIDER ──────────────────────────────────────────── */
+.divider { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+
+/* ── CHECKBOX ─────────────────────────────────────────── */
+.checkbox-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.75rem; color: var(--text);
+  cursor: pointer; margin-bottom: 6px;
+}
+.checkbox-row input[type="checkbox"] {
+  width: 14px; height: 14px; cursor: pointer;
+  accent-color: var(--amber);
+}
+
+/* ── N selector ───────────────────────────────────────── */
+.n-selector { display: flex; gap: 6px; }
+.n-btn {
+  flex: 1; padding: 6px;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.18s;
+}
+.n-btn.active { border-color: var(--amber); color: var(--amber); background: rgba(232,160,32,0.1); }
+.n-btn:hover:not(.active) { border-color: var(--border2); color: var(--text); }
+
+/* ── RESPONSIVE ───────────────────────────────────────── */
+@media (max-width: 900px) {
+  .app-grid { grid-template-columns: 1fr; }
+  .sidebar { height: auto; position: relative; top: 0; }
+  .plot-grid { grid-template-columns: 1fr; }
+  .plot-card.full-width { grid-column: 1; }
+}
+
+/* ── GLOW PULSE ───────────────────────────────────────── */
+@keyframes glowPulse {
+  0%,100% { box-shadow: 0 0 4px rgba(232,160,32,0.2); }
+  50%      { box-shadow: 0 0 12px rgba(232,160,32,0.5); }
+}
+
+.obs-card { animation: glowPulse 3s ease-in-out infinite; }
+
+</style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div class="computing-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <span>COMPUTING SLOW-ROLL DYNAMICS</span>
+</div>
+
+<!-- ── HEADER ──────────────────────────────────────────────── -->
+<header>
+  <div class="header-left">
+    <div class="logo">INFLATION<span>LAB</span></div>
+    <div class="subtitle">Slow-Roll Cosmology Console · M<sub>pl</sub>=1</div>
+  </div>
+  <div class="header-right">
+    <div class="status-led"></div>
+    <div class="status-text" id="statusText">READY</div>
+  </div>
+</header>
+
+<div class="app-grid">
+
+  <!-- ── SIDEBAR ─────────────────────────────────────────── -->
+  <aside class="sidebar">
+
+    <!-- MODEL SELECTION -->
+    <div class="section-header"><span class="icon">◈</span> MODEL SELECTION</div>
+    <div class="section-body">
+      <div class="field-label">
+        Potential Preset
+        <span class="tip" data-tip="Choose a standard inflationary model or define your own V(φ) below.">?</span>
+      </div>
+      <select id="presetSelect">
+        <option value="custom">— Custom Expression —</option>
+        <option value="quadratic"  selected>φ² · Chaotic (m²φ²/2)</option>
+        <option value="quartic">φ⁴ · Chaotic (λφ⁴)</option>
+        <option value="starobinsky">Starobinsky / R² (α-attractor)</option>
+        <option value="natural">Natural Inflation (cosine)</option>
+        <option value="hilltop">Hilltop Quartic</option>
+        <option value="smallfield">Small-Field Power Law</option>
+        <option value="doublewell">Double-Well / Symmetry Breaking</option>
+        <option value="axionmono">Axion Monodromy (φ^p)</option>
+        <option value="gaussian_bump">Plateau + Gaussian Bump (PBH)</option>
+        <option value="plateau">Power-Law Plateau</option>
+        <option value="higgs">Higgs-like (NMC plateau)</option>
+      </select>
+
+      <div style="margin-top:12px">
+        <div class="field-label">
+          Custom V(φ)
+          <span class="tip" data-tip="Enter any function of phi.\nUse: **, sqrt(), exp(), log(), sin(), cos(), abs()\nExample: (1 - exp(-phi))**2">?</span>
+        </div>
+        <div class="custom-expr-wrap">
+          <input type="text" id="customExpr" placeholder="e.g.  phi**4  or  (1-exp(-phi))**2"/>
+          <span class="expr-clear" onclick="clearCustom()">×</span>
+        </div>
+        <div class="latex-display" id="latexDisplay">V(φ) will appear here…</div>
+        <div class="error-msg" id="parseError">⚠ Parse error — check expression syntax.</div>
+      </div>
+    </div>
+
+    <hr class="divider"/>
+
+    <!-- PARAMETERS -->
+    <div class="section-header"><span class="icon">◐</span> PARAMETERS</div>
+    <div class="section-body" id="paramPanel">
+      <!-- dynamically injected sliders -->
+    </div>
+
+    <hr class="divider"/>
+
+    <!-- DOMAIN & PIVOT -->
+    <div class="section-header"><span class="icon">◉</span> COMPUTATION DOMAIN</div>
+    <div class="section-body">
+      <div class="field-label">φ range</div>
+      <div class="slider-row">
+        <span class="slider-label" style="font-style:normal;font-size:0.72rem">φ<sub>min</sub></span>
+        <input type="range" id="phiMin" min="0.001" max="3" step="0.01" value="0.01" oninput="updateSliderFill(this);scheduleUpdate()"/>
+        <span class="slider-value" id="phiMinVal">0.01</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" style="font-style:normal;font-size:0.72rem">φ<sub>max</sub></span>
+        <input type="range" id="phiMax" min="3" max="60" step="0.5" value="25" oninput="updateSliderFill(this);scheduleUpdate()"/>
+        <span class="slider-value" id="phiMaxVal">25.0</span>
+      </div>
+
+      <div class="field-label" style="margin-top:10px">
+        Pivot e-folds N★
+        <span class="tip" data-tip="Number of e-folds before end of inflation at which CMB observables are evaluated. Typically 50–60.">?</span>
+      </div>
+      <div class="n-selector">
+        <div class="n-btn active" id="nBtn50" onclick="setNstar(50)">N=50</div>
+        <div class="n-btn" id="nBtn55" onclick="setNstar(55)">N=55</div>
+        <div class="n-btn" id="nBtn60" onclick="setNstar(60)">N=60</div>
+      </div>
+
+      <div style="margin-top:12px">
+        <label class="checkbox-row">
+          <input type="checkbox" id="showBothN" checked onchange="scheduleUpdate()"/>
+          Show N=50 &amp; N=60 markers
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="logVaxis" checked onchange="updatePlots()"/>
+          Log-scale V(φ) axis
+        </label>
+      </div>
+    </div>
+
+    <hr class="divider"/>
+
+    <!-- OBSERVABLES -->
+    <div class="section-header"><span class="icon">◆</span> OBSERVABLES <span class="tip" style="margin-left:4px" data-tip="Evaluated at the pivot scale φ★ corresponding to N★ e-folds before inflation ends.">?</span></div>
+    <div class="section-body">
+      <div class="obs-grid">
+        <div class="obs-card" id="obs_ns">
+          <div class="obs-label">nₛ <span class="tip" data-tip="Scalar spectral index.\nPlanck 2018: 0.960–0.975\nn_s = 1 − 6ε★ + 2η★">?</span></div>
+          <div class="obs-value" id="val_ns">—</div>
+          <div class="obs-sub">Planck: 0.960–0.975</div>
+        </div>
+        <div class="obs-card" id="obs_r">
+          <div class="obs-label">r <span class="tip" data-tip="Tensor-to-scalar ratio.\nPlanck+BICEP: r < 0.064\nr = 16ε★">?</span></div>
+          <div class="obs-value" id="val_r">—</div>
+          <div class="obs-sub">Bound: r &lt; 0.064</div>
+        </div>
+        <div class="obs-card" id="obs_eps">
+          <div class="obs-label">ε★ <span class="tip" data-tip="First slow-roll parameter at pivot.\nε = ½(V'/V)²\nSlowroll requires ε≪1">?</span></div>
+          <div class="obs-value" id="val_eps">—</div>
+          <div class="obs-sub">Slow-roll: ε ≪ 1</div>
+        </div>
+        <div class="obs-card" id="obs_eta">
+          <div class="obs-label">η★ <span class="tip" data-tip="Second slow-roll parameter.\nη = V''/V\nSlowroll requires |η|≪1">?</span></div>
+          <div class="obs-value" id="val_eta">—</div>
+          <div class="obs-sub">Slow-roll: |η| ≪ 1</div>
+        </div>
+        <div class="obs-card" style="grid-column:1/-1" id="obs_phi">
+          <div class="obs-label">φ★ / Mₚₗ &nbsp;&nbsp; φ_end / Mₚₗ</div>
+          <div class="obs-value" style="font-size:1rem;" id="val_phi">— &nbsp;/&nbsp; —</div>
+          <div class="obs-sub">Field values at pivot and inflation end</div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider"/>
+
+    <!-- ACTIONS -->
+    <div class="section-body">
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="scheduleUpdate()">⟳ Recompute</button>
+        <button class="btn" onclick="resetDefaults()">↺ Reset</button>
+        <button class="btn" onclick="exportData()">⬇ Export</button>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── MAIN CONTENT ───────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- Equation bar -->
+    <div class="equation-bar">
+      <div class="eq-item">
+        <div class="eq-title">First slow-roll param <span class="tip" data-tip="ε(φ) = ½(V′/V)²\nMeasures steepness of V.\nInflation ends when ε=1.">?</span></div>
+        <div class="eq-expr">ε(φ) = ½(V′/V)²</div>
+      </div>
+      <div class="eq-item">
+        <div class="eq-title">Second slow-roll param <span class="tip" data-tip="η(φ) = V″/V\nMeasures curvature of V.\nSlowroll: |η|≪1">?</span></div>
+        <div class="eq-expr">η(φ) = V″/V</div>
+      </div>
+      <div class="eq-item">
+        <div class="eq-title">E-folds integral <span class="tip" data-tip="N(φ) = ∫ V/V′ dφ  (M_pl=1)\nNumber of e-folds of expansion.">?</span></div>
+        <div class="eq-expr">N(φ) = ∫ V/V′ dφ</div>
+      </div>
+      <div class="eq-item">
+        <div class="eq-title">Spectral observables <span class="tip" data-tip="Evaluated at φ★ (N★ e-folds before end).\nPlanck 2018: n_s=0.965±0.004, r<0.064">?</span></div>
+        <div class="eq-expr">nₛ = 1−6ε★+2η★ &nbsp; r=16ε★</div>
+      </div>
+      <div class="eq-item">
+        <div class="eq-title">CMB normalization <span class="tip" data-tip="𝒫ℛ = V/(24π²ε) = Aₛ = 2.1×10⁻⁹\nFixes overall scale of V.">?</span></div>
+        <div class="eq-expr">𝒫ℛ = V/(24π²ε) = Aₛ</div>
+      </div>
+    </div>
+
+    <!-- PLOTS -->
+    <div class="plot-grid">
+
+      <!-- V(phi) -->
+      <div class="plot-card">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">INFLATON POTENTIAL V(φ)</div>
+            <div class="plot-desc">CMB-normalized · log scale optional</div>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotV" style="height:280px"></div></div>
+      </div>
+
+      <!-- slow-roll params -->
+      <div class="plot-card">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">SLOW-ROLL PARAMETERS ε(φ), η(φ)</div>
+            <div class="plot-desc">Inflation requires ε,|η|≪1</div>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotSR" style="height:280px"></div></div>
+      </div>
+
+      <!-- N(phi) -->
+      <div class="plot-card">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">NUMBER OF E-FOLDS N(φ)</div>
+            <div class="plot-desc">Integrated from end of inflation</div>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotN" style="height:280px"></div></div>
+      </div>
+
+      <!-- Phase portrait -->
+      <div class="plot-card">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">PHASE PORTRAIT  dφ/dN vs φ</div>
+            <div class="plot-desc">Slow-roll trajectory in field space</div>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotPhase" style="height:280px"></div></div>
+      </div>
+
+      <!-- ns-r plane -->
+      <div class="plot-card full-width">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">nₛ–r PLANE WITH PLANCK 2018 CONSTRAINTS</div>
+            <div class="plot-desc">Confidence contours + reference model trajectories</div>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotNsR" style="height:340px"></div></div>
+        <div class="planck-legend">
+          <span><div class="dot" style="background:rgba(100,180,255,0.6);border:1px solid #4af"></div>Planck 2018 1σ (approx.)</span>
+          <span><div class="dot" style="background:rgba(100,180,255,0.2);border:1px solid #4af"></div>Planck 2018 2σ (approx.)</span>
+          <span><div class="dot" style="background:#20d090;border-radius:50%"></div>N=50 pivot</span>
+          <span><div class="dot" style="background:#e8a020;border-radius:50%"></div>N=60 pivot</span>
+          <span><div class="dot" style="background:#e05040;border-radius:50%"></div>N=55 pivot</span>
+        </div>
+      </div>
+
+      <!-- Power spectra -->
+      <div class="plot-card full-width">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">PRIMORDIAL POWER SPECTRA</div>
+            <div class="plot-desc">CMB-normalized scalar 𝒫ℛ and tensor 𝒫T vs e-folds N</div>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotPS" style="height:260px"></div></div>
+      </div>
+
+    </div>
+
+    <!-- INFO SECTION -->
+    <div class="info-panel">
+      <h2>▸ INFLATION — THEORY PRIMER</h2>
+      <div class="info-cols">
+        <div class="info-block">
+          <h3>Cosmic Inflation</h3>
+          <p>Inflation is a period of accelerated expansion in the very early universe (t~10⁻³⁶ s), driven by the potential energy V(φ) of a scalar field φ (the <em>inflaton</em>). It solves the horizon, flatness, and monopole problems and generates the primordial density perturbations observed in the CMB.</p>
+        </div>
+        <div class="info-block">
+          <h3>Slow-Roll Parameters</h3>
+          <p><code>ε(φ) = ½(V′/V)²</code> — measures the slope of V. Inflation occurs while <code>ε &lt; 1</code> and ends when <code>ε = 1</code>.</p>
+          <p style="margin-top:6px"><code>η(φ) = V″/V</code> — measures the curvature of V. The slow-roll approximation requires <code>ε, |η| ≪ 1</code>.</p>
+        </div>
+        <div class="info-block">
+          <h3>CMB Observables</h3>
+          <p><code>nₛ = 1 − 6ε★ + 2η★</code> is the scalar spectral index (tilt of the power spectrum). Planck 2018: <code>nₛ = 0.965 ± 0.004</code>.</p>
+          <p style="margin-top:6px"><code>r = 16ε★</code> is the tensor-to-scalar ratio (gravitational waves). Current bound: <code>r &lt; 0.064</code> (Planck+BICEP/Keck).</p>
+        </div>
+        <div class="info-block">
+          <h3>E-folds &amp; Pivot Scale</h3>
+          <p>The number of e-folds is <code>N(φ) = ∫ V/V′ dφ</code> (in reduced Planck units). CMB observables are evaluated at the <em>pivot field value</em> φ★ corresponding to N★ ≈ 50–60 e-folds before inflation ends, depending on the reheating history.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT — PHYSICS ENGINE + UI LOGIC + PLOTTING
+     ============================================================ -->
+<script>
+"use strict";
+
+// ── CONSTANTS ────────────────────────────────────────────────
+const Mpl   = 1.0;
+const As    = 2.1e-9;         // CMB amplitude
+const PI    = Math.PI;
+
+// Planck 2018 contour data (approximate ellipses)
+const PLANCK_NS_CENTER = 0.9649;
+const PLANCK_R_CENTER  = 0.0;
+const PLANCK_1S_NS     = 0.0042;  // 1-sigma half-width in ns
+const PLANCK_1S_R      = 0.022;   // 1-sigma half-height in r
+const PLANCK_2S_NS     = 0.0084;
+const PLANCK_2S_R      = 0.055;
+const PLANCK_R_MAX     = 0.064;   // BICEP/Keck upper limit
+
+// ── PRESET DEFINITIONS ────────────────────────────────────────
+const PRESETS = {
+  quadratic: {
+    expr: "0.5 * m**2 * phi**2",
+    latex: "V(φ) = ½ m² φ²",
+    params: { m: { min:1e-7, max:1e-4, val:6e-6, log:true, label:"m" } },
+    phiMin: 0.01, phiMax: 20,
+  },
+  quartic: {
+    expr: "lam * phi**4",
+    latex: "V(φ) = λ φ⁴",
+    params: { lam: { min:1e-15, max:1e-11, val:1e-13, log:true, label:"λ" } },
+    phiMin: 0.01, phiMax: 25,
+  },
+  starobinsky: {
+    expr: "V0 * (1 - exp(-alpha * phi))**2",
+    latex: "V(φ) = V₀ (1 − e^{−αφ})²",
+    params: {
+      V0:    { min:1e-12, max:1e-8,  val:1.5e-9, log:true,   label:"V₀" },
+      alpha: { min:0.05,  max:2.0,   val:0.816,  log:false,  label:"α" },
+    },
+    phiMin: 0.01, phiMax: 12,
+  },
+  natural: {
+    expr: "V0 * (1 - cos(phi / f))",
+    latex: "V(φ) = V₀ (1 − cos(φ/f))",
+    params: {
+      V0: { min:1e-12, max:1e-8, val:1e-10, log:true,  label:"V₀" },
+      f:  { min:0.5,   max:15,   val:5.0,   log:false, label:"f" },
+    },
+    phiMin: 0.1, phiMax: 20,
+  },
+  hilltop: {
+    expr: "V0 * (1 - (phi/mu)**4)",
+    latex: "V(φ) = V₀ (1 − (φ/μ)⁴)",
+    params: {
+      V0: { min:1e-12, max:1e-8, val:1e-10, log:true,  label:"V₀" },
+      mu: { min:1,     max:30,   val:12.0,  log:false, label:"μ" },
+    },
+    phiMin: 0.01, phiMax: 12,
+  },
+  smallfield: {
+    expr: "V0 * (phi/mu)**p * (1 - phi/mu)",
+    latex: "V(φ) = V₀ (φ/μ)^p (1−φ/μ)",
+    params: {
+      V0: { min:1e-12, max:1e-8, val:1e-10, log:true,  label:"V₀" },
+      mu: { min:1,     max:20,   val:8.0,   log:false, label:"μ" },
+      p:  { min:1,     max:6,    val:2.0,   log:false, label:"p", step:0.5 },
+    },
+    phiMin: 0.01, phiMax: 8,
+  },
+  doublewell: {
+    expr: "lam * (phi**2 - v**2)**2",
+    latex: "V(φ) = λ (φ² − v²)²",
+    params: {
+      lam: { min:1e-15, max:1e-10, val:1e-12, log:true,  label:"λ" },
+      v:   { min:0.5,   max:20,    val:6.0,   log:false, label:"v" },
+    },
+    phiMin: 0.01, phiMax: 20,
+  },
+  axionmono: {
+    expr: "V0 * phi**p",
+    latex: "V(φ) = V₀ φ^p",
+    params: {
+      V0: { min:1e-14, max:1e-9, val:1e-11, log:true,  label:"V₀" },
+      p:  { min:0.5,   max:4,    val:2.0,   log:false, label:"p", step:0.25 },
+    },
+    phiMin: 0.01, phiMax: 25,
+  },
+  gaussian_bump: {
+    expr: "V0 * (1 - exp(-alpha*phi))**2 + A * exp(-(phi - phi0)**2 / (2*sigma**2))",
+    latex: "V(φ) = V₀(1−e^{−αφ})² + A·e^{−(φ−φ₀)²/2σ²}",
+    params: {
+      V0:    { min:1e-12, max:1e-8,  val:1.5e-9,  log:true,  label:"V₀" },
+      alpha: { min:0.05,  max:2,     val:0.816,   log:false, label:"α" },
+      A:     { min:1e-13, max:1e-8,  val:2e-10,   log:true,  label:"A (bump)" },
+      phi0:  { min:1,     max:10,    val:4.0,     log:false, label:"φ₀" },
+      sigma: { min:0.05,  max:2,     val:0.3,     log:false, label:"σ" },
+    },
+    phiMin: 0.01, phiMax: 12,
+  },
+  plateau: {
+    expr: "V0 * phi**n / (1 + phi**n)",
+    latex: "V(φ) = V₀ φⁿ / (1+φⁿ)",
+    params: {
+      V0: { min:1e-12, max:1e-8, val:1e-10, log:true,  label:"V₀" },
+      n:  { min:0.5,   max:6,    val:2.0,   log:false, label:"n", step:0.5 },
+    },
+    phiMin: 0.01, phiMax: 25,
+  },
+  higgs: {
+    expr: "V0 * (1 - (1 + xi * phi**2)**(-1))**2",
+    latex: "V(φ) = V₀ (1 − (1+ξφ²)⁻¹)²",
+    params: {
+      V0: { min:1e-12, max:1e-8, val:1e-9,  log:true,  label:"V₀" },
+      xi: { min:0.1,   max:200,  val:10.0,  log:false, label:"ξ" },
+    },
+    phiMin: 0.01, phiMax: 15,
+  },
+};
+
+// ── STATE ─────────────────────────────────────────────────────
+let state = {
+  preset: "quadratic",
+  customExpr: "",
+  params: {},
+  phiMin: 0.01,
+  phiMax: 20,
+  Nstar: 60,
+  showBothN: true,
+  logV: true,
+};
+
+let computedData = null;
+let updateTimer  = null;
+
+// ── SAFE MATH EVALUATOR ───────────────────────────────────────
+/**
+ * Parse a user expression in terms of 'phi' and named parameters.
+ * Returns a compiled JS function f(phi, params) → number.
+ * Whitelisted math operations only.
+ */
+function compileExpr(exprStr, paramNames) {
+  // Replace ^ with **
+  let s = exprStr.replace(/\^/g, "**");
+
+  // Substitute math functions → Math.*
+  const mathFuncs = ["sqrt","exp","log","sin","cos","tan","sinh","cosh","tanh",
+                     "asin","acos","atan","abs","sign"];
+  mathFuncs.forEach(f => {
+    s = s.replace(new RegExp(`\\b${f}\\b`, "g"), `Math.${f}`);
+  });
+  s = s.replace(/\bpi\b/gi, "Math.PI");
+  s = s.replace(/\bln\b/g, "Math.log");
+  s = s.replace(/\bMath\.Math\./g, "Math."); // prevent double Math.Math.
+
+  // Whitelist check — only allow safe characters
+  const safe = /^[0-9phi\s\+\-\*\/\(\)\.\,\_\%Math\.\w]+$/;
+  if (!safe.test(s.replace(/Math\.\w+/g, ""))) {
+    throw new Error("Unsafe characters in expression");
+  }
+
+  // Build function body
+  const paramDecls = paramNames.map(p => `const ${p} = _p["${p}"];`).join(" ");
+  const body = `"use strict"; ${paramDecls} return (${s});`;
+
+  try {
+    // eslint-disable-next-line no-new-func
+    const fn = new Function("phi", "_p", body);
+    // Test call
+    const testParams = {};
+    paramNames.forEach(p => testParams[p] = 1.0);
+    const testVal = fn(1.0, testParams);
+    if (typeof testVal !== "number") throw new Error("Non-numeric result");
+    return fn;
+  } catch(e) {
+    throw new Error("Expression evaluation error: " + e.message);
+  }
+}
+
+/**
+ * Extract free parameter names from an expression
+ * (any identifier that is not phi, Math, or a builtin)
+ */
+function extractParams(exprStr) {
+  const reserved = new Set(["phi","pi","Math","sqrt","exp","log","ln","sin","cos",
+    "tan","sinh","cosh","tanh","asin","acos","atan","abs","sign","e","E","Infinity","NaN"]);
+  const tokens = exprStr.match(/\b[a-zA-Z_][a-zA-Z0-9_]*\b/g) || [];
+  const seen = new Set();
+  const result = [];
+  tokens.forEach(t => {
+    if (!reserved.has(t) && !seen.has(t)) { seen.add(t); result.push(t); }
+  });
+  return result;
+}
+
+// ── NUMERICAL DIFFERENTIATION ────────────────────────────────
+/**
+ * 5-point stencil first derivative
+ */
+function deriv1(f, x, h=1e-5) {
+  return (-f(x+2*h) + 8*f(x+h) - 8*f(x-h) + f(x-2*h)) / (12*h);
+}
+
+/**
+ * 5-point stencil second derivative
+ */
+function deriv2(f, x, h=1e-5) {
+  return (-f(x+2*h) + 16*f(x+h) - 30*f(x) + 16*f(x-h) - f(x-2*h)) / (12*h*h);
+}
+
+// ── NUMERICAL INTEGRATION (Adaptive Simpson) ─────────────────
+function adaptiveSimpson(f, a, b, tol=1e-8, maxDepth=50) {
+  function simpsonStep(f, a, b, fa, fm, fb, whole, depth) {
+    const m1 = (a + (a+b)/2) / 2;
+    const m2 = ((a+b)/2 + b) / 2;
+    const fm1 = f(m1), fm2 = f(m2);
+    const left  = (b-a)/12 * (fa + 4*fm1 + fm);
+    const right = (b-a)/12 * (fm + 4*fm2 + fb);
+    const delta = left + right - whole;
+    if (depth >= maxDepth || Math.abs(delta) <= 15*tol) {
+      return left + right + delta/15;
+    }
+    const mid = (a+b)/2;
+    const fmid = f(mid);
+    return simpsonStep(f, a, mid, fa, fm1, fmid, left, depth+1, tol/2)
+         + simpsonStep(f, mid, b, fmid, fm2, fb, right, depth+1, tol/2);
+  }
+  const fa = f(a), fm = f((a+b)/2), fb = f(b);
+  const whole = (b-a)/6 * (fa + 4*fm + fb);
+  try {
+    return simpsonStep(f, a, b, fa, fm, fb, whole, 0);
+  } catch(e) {
+    return whole; // fallback
+  }
+}
+
+// ── TRAPEZOID CUMULATIVE INTEGRAL ─────────────────────────────
+function cumtrapz(y, x) {
+  const n = y.length;
+  const result = new Float64Array(n);
+  result[0] = 0;
+  for (let i = 1; i < n; i++) {
+    result[i] = result[i-1] + 0.5*(y[i-1]+y[i])*(x[i]-x[i-1]);
+  }
+  return result;
+}
+
+// ── CORE PHYSICS ENGINE ───────────────────────────────────────
+/**
+ * Full slow-roll computation for a given compiled potential function.
+ *
+ * Steps:
+ * 1. Build phi array and evaluate V, V', V''
+ * 2. Compute slow-roll params ε(φ), η(φ)
+ * 3. Detect end of inflation (ε = 1)
+ * 4. Integrate N(φ) = ∫ V/V' dφ from phi_end
+ * 5. Find pivot φ★ at N★ e-folds
+ * 6. Compute nₛ, r, power spectra, CMB norm
+ */
+function computeInflation(Vfn, phiMin, phiMax, Nstar) {
+  const N_POINTS = 1500;
+  const phi = new Float64Array(N_POINTS);
+  const V   = new Float64Array(N_POINTS);
+  const dV  = new Float64Array(N_POINTS);
+  const d2V = new Float64Array(N_POINTS);
+  const eps = new Float64Array(N_POINTS);
+  const eta = new Float64Array(N_POINTS);
+
+  const dphi = (phiMax - phiMin) / (N_POINTS - 1);
+  const h_step = Math.min(dphi * 0.5, 1e-5);
+
+  // Step 1: Evaluate V, V', V''
+  for (let i = 0; i < N_POINTS; i++) {
+    phi[i] = phiMin + i * dphi;
+    const p = phi[i];
+    try {
+      const Vval = Vfn(p);
+      V[i]   = (isFinite(Vval) && Vval > 0) ? Vval : NaN;
+      dV[i]  = deriv1(Vfn, p, h_step);
+      d2V[i] = deriv2(Vfn, p, h_step);
+    } catch(e) {
+      V[i] = dV[i] = d2V[i] = NaN;
+    }
+  }
+
+  // Step 2: Slow-roll parameters
+  for (let i = 0; i < N_POINTS; i++) {
+    if (!isFinite(V[i]) || V[i] <= 0) { eps[i] = NaN; eta[i] = NaN; continue; }
+    const ratio = dV[i] / V[i];
+    eps[i] = 0.5 * ratio * ratio;
+    eta[i] = d2V[i] / V[i];
+  }
+
+  // Step 3: Detect end of inflation (ε = 1)
+  // For large-field models: field rolls large→small, eps large at small phi → find last eps>=1
+  // For small-field: field rolls small→large (or plateau shape) → find first eps>=1 from right
+  // Strategy: use the sign of dV to determine roll direction
+  let idx_end = -1;
+  // Find the first crossing from inflation (ε<1) to non-inflation (ε≥1) when scanning
+  // from inside out. We look for crossings and pick the most physical one.
+
+  // Count valid inflationary region (ε < 1) from each side
+  let validLeft = 0, validRight = 0;
+  for (let i = 0; i < N_POINTS; i++) {
+    if (isFinite(eps[i]) && eps[i] < 1) validLeft++;
+  }
+
+  // Find all ε=1 crossings
+  const crossings = [];
+  for (let i = 1; i < N_POINTS; i++) {
+    if (isFinite(eps[i-1]) && isFinite(eps[i])) {
+      if ((eps[i-1]-1)*(eps[i]-1) <= 0) {
+        crossings.push(i);
+      }
+    }
+  }
+
+  if (crossings.length > 0) {
+    // Determine roll direction from sign of dV near center
+    const midIdx = Math.floor(N_POINTS/2);
+    const dVmid = dV[midIdx];
+    if (dVmid > 0) {
+      // V increasing → field rolls toward smaller phi (large-field)
+      // eps is large at small phi, inflation at large phi → end at LAST crossing from right
+      idx_end = crossings[crossings.length - 1];
+    } else {
+      // V decreasing → field rolls toward larger phi → end at FIRST crossing from right
+      idx_end = crossings[0];
+    }
+  } else {
+    // eps never reaches 1 — use domain boundary with largest eps
+    let maxEps = 0;
+    for (let i = 0; i < N_POINTS; i++) {
+      if (isFinite(eps[i]) && eps[i] > maxEps) { maxEps = eps[i]; idx_end = i; }
+    }
+  }
+  if (idx_end < 0 || idx_end >= N_POINTS) idx_end = 0;
+
+  const phi_end = phi[idx_end];
+  const V_end   = V[idx_end];
+
+  // Step 4: E-folds N(φ) = ∫ (V/V') dφ  (M_pl = 1)
+  // Integrate from phi_end outward; sign chosen so N > 0 during inflation.
+  // We compute it as a cumulative integral and then shift.
+  const integrand = new Float64Array(N_POINTS);
+  for (let i = 0; i < N_POINTS; i++) {
+    if (!isFinite(V[i]) || !isFinite(dV[i]) || Math.abs(dV[i]) < 1e-30) {
+      integrand[i] = 0;
+    } else {
+      integrand[i] = V[i] / dV[i];
+    }
+  }
+
+  const N_cum = cumtrapz(integrand, phi);
+  // Shift so N[idx_end] = 0
+  const N_offset = N_cum[idx_end];
+  const N_arr = new Float64Array(N_POINTS);
+  for (let i = 0; i < N_POINTS; i++) N_arr[i] = N_cum[i] - N_offset;
+
+  // Make N mostly positive by flipping if needed
+  let posCount = 0, negCount = 0;
+  for (let i = 0; i < N_POINTS; i++) {
+    if (isFinite(N_arr[i])) { if (N_arr[i] > 0) posCount++; else negCount++; }
+  }
+  const signFlip = (negCount > posCount) ? -1 : 1;
+  for (let i = 0; i < N_POINTS; i++) N_arr[i] *= signFlip;
+
+  // Step 5: Find pivot field values for various N★
+  const pivots = {};
+  for (const Ns of [50, 55, 60]) {
+    let idx_star = -1;
+    // Find smallest phi with N >= Ns (or search other direction)
+    for (let i = 0; i < N_POINTS; i++) {
+      if (isFinite(N_arr[i]) && N_arr[i] >= Ns) {
+        idx_star = i;
+        break;
+      }
+    }
+    if (idx_star < 0) { pivots[Ns] = null; continue; }
+
+    const phi_star = phi[idx_star];
+    const eps_star = eps[idx_star];
+    const eta_star = eta[idx_star];
+
+    if (!isFinite(eps_star) || eps_star <= 0 || !isFinite(eta_star)) {
+      pivots[Ns] = null; continue;
+    }
+
+    const ns  = 1 - 6*eps_star + 2*eta_star;
+    const r   = 16*eps_star;
+
+    // CMB normalization factor
+    const PR_unnorm = V[idx_star] / (24*PI*PI*eps_star);
+    const norm = (isFinite(PR_unnorm) && PR_unnorm > 0) ? As / PR_unnorm : 1;
+
+    // Build normalized power spectra over N domain
+    const PR_arr = new Float64Array(N_POINTS);
+    const PT_arr = new Float64Array(N_POINTS);
+    for (let i = 0; i < N_POINTS; i++) {
+      if (isFinite(eps[i]) && eps[i] > 0 && isFinite(V[i]) && V[i] > 0) {
+        PR_arr[i] = norm * V[i] / (24*PI*PI*eps[i]);
+        PT_arr[i] = r * PR_arr[i];
+      } else {
+        PR_arr[i] = NaN;
+        PT_arr[i] = NaN;
+      }
+    }
+
+    pivots[Ns] = { idx_star, phi_star, eps_star, eta_star, ns, r, PR_arr, PT_arr, V_norm: norm };
+  }
+
+  // Normalized V array (use N=60 norm if available)
+  const normFactor = (pivots[60]?.V_norm) || (pivots[55]?.V_norm) || (pivots[50]?.V_norm) || 1;
+  const V_plot = new Float64Array(N_POINTS);
+  for (let i = 0; i < N_POINTS; i++) V_plot[i] = V[i] * normFactor;
+
+  // dφ/dN ≈ -V'/V (slow-roll)
+  const dphidN = new Float64Array(N_POINTS);
+  for (let i = 0; i < N_POINTS; i++) {
+    dphidN[i] = (isFinite(V[i]) && V[i] > 0 && isFinite(dV[i])) ? -dV[i]/V[i] : NaN;
+  }
+
+  return { phi, V, V_plot, dV, d2V, eps, eta, N_arr, phi_end, idx_end, pivots, dphidN };
+}
+
+// ── UI STATE MANAGEMENT ───────────────────────────────────────
+let currentVfn = null;  // compiled potential function
+
+function getPreset() {
+  return PRESETS[state.preset] || null;
+}
+
+function getExprAndParams() {
+  const preset = getPreset();
+  if (state.preset === "custom" && state.customExpr) {
+    const paramNames = extractParams(state.customExpr);
+    const paramVals  = {};
+    paramNames.forEach(p => { paramVals[p] = state.params[p] ?? 1.0; });
+    return { expr: state.customExpr, paramNames, paramVals };
+  } else if (preset) {
+    const paramNames = Object.keys(preset.params);
+    const paramVals  = {};
+    paramNames.forEach(p => {
+      paramVals[p] = state.params[p] ?? preset.params[p].val;
+    });
+    return { expr: preset.expr, paramNames, paramVals };
+  }
+  return null;
+}
+
+function buildVfn() {
+  const ep = getExprAndParams();
+  if (!ep) return null;
+  try {
+    const fn = compileExpr(ep.expr, ep.paramNames);
+    return (phi) => fn(phi, ep.paramVals);
+  } catch(e) {
+    showError(e.message);
+    return null;
+  }
+}
+
+// ── PARAMETER SLIDERS ─────────────────────────────────────────
+function buildParamPanel() {
+  const panel = document.getElementById("paramPanel");
+  panel.innerHTML = "";
+
+  const preset = getPreset();
+  const paramDefs = (state.preset === "custom" && state.customExpr)
+    ? buildCustomParamDefs()
+    : (preset ? preset.params : {});
+
+  if (Object.keys(paramDefs).length === 0) {
+    panel.innerHTML = '<div style="color:var(--text-dim);font-size:0.75rem">No free parameters detected.</div>';
+    return;
+  }
+
+  for (const [name, def] of Object.entries(paramDefs)) {
+    const curVal = state.params[name] ?? def.val ?? 1.0;
+    const isLog  = def.log;
+
+    const sliderMin = isLog ? Math.log10(def.min || 1e-15) : (def.min ?? -5);
+    const sliderMax = isLog ? Math.log10(def.max || 1)     : (def.max ?? 5);
+    const sliderVal = isLog ? Math.log10(curVal)           : curVal;
+    const step      = def.step || ((sliderMax - sliderMin) / 200);
+
+    const displayVal = formatParamVal(curVal, isLog);
+
+    const row = document.createElement("div");
+    row.className = "slider-row";
+    row.innerHTML = `
+      <span class="slider-label">${def.label || name}</span>
+      <input type="range"
+             id="sl_${name}"
+             min="${sliderMin}" max="${sliderMax}" step="${step}"
+             value="${sliderVal}"
+             data-param="${name}" data-log="${isLog}"
+             oninput="onParamSlide(this)"/>
+      <span class="slider-value" id="sv_${name}">${displayVal}</span>`;
+
+    panel.appendChild(row);
+    // Set initial fill
+    const inp = row.querySelector("input");
+    updateSliderFill(inp);
+  }
+}
+
+function buildCustomParamDefs() {
+  const names = extractParams(state.customExpr);
+  const defs  = {};
+  names.forEach(n => {
+    defs[n] = { min:-5, max:5, val: state.params[n] ?? 1.0, log:false, label:n };
+  });
+  return defs;
+}
+
+function onParamSlide(input) {
+  const name  = input.dataset.param;
+  const isLog = input.dataset.log === "true";
+  const raw   = parseFloat(input.value);
+  const val   = isLog ? Math.pow(10, raw) : raw;
+  state.params[name] = val;
+  document.getElementById("sv_" + name).textContent = formatParamVal(val, isLog);
+  updateSliderFill(input);
+  scheduleUpdate();
+}
+
+function formatParamVal(val, isLog) {
+  if (isLog) {
+    if (Math.abs(val) < 1e-3 || Math.abs(val) > 999) {
+      return val.toExponential(2);
+    }
+  }
+  return val.toPrecision(4);
+}
+
+function updateSliderFill(input) {
+  const min = parseFloat(input.min);
+  const max = parseFloat(input.max);
+  const val = parseFloat(input.value);
+  const pct = ((val - min) / (max - min) * 100).toFixed(1) + "%";
+  input.style.setProperty("--pct", pct);
+  // Update domain display
+  const id = input.id;
+  if (id === "phiMin") { document.getElementById("phiMinVal").textContent = parseFloat(input.value).toFixed(3); state.phiMin = parseFloat(input.value); }
+  if (id === "phiMax") { document.getElementById("phiMaxVal").textContent = parseFloat(input.value).toFixed(1); state.phiMax = parseFloat(input.value); }
+}
+
+// ── SCHEDULE / DEBOUNCE UPDATE ────────────────────────────────
+function scheduleUpdate() {
+  clearTimeout(updateTimer);
+  updateTimer = setTimeout(runUpdate, 120);
+}
+
+function runUpdate() {
+  setStatus("COMPUTING…");
+  hideError();
+
+  // Pull domain values
+  state.phiMin = parseFloat(document.getElementById("phiMin").value);
+  state.phiMax = parseFloat(document.getElementById("phiMax").value);
+  state.showBothN = document.getElementById("showBothN").checked;
+  state.logV = document.getElementById("logVaxis").checked;
+
+  // Build potential
+  currentVfn = buildVfn();
+  if (!currentVfn) { setStatus("PARSE ERROR"); return; }
+
+  // Validate quickly
+  try {
+    const testV = currentVfn(5.0);
+    if (!isFinite(testV)) throw new Error("V(5)=non-finite");
+  } catch(e) {
+    showError("Potential evaluation failed: " + e.message);
+    setStatus("ERROR");
+    return;
+  }
+
+  // Compute (synchronous but fast enough for 1500 points)
+  try {
+    computedData = computeInflation(currentVfn, state.phiMin, state.phiMax, state.Nstar);
+    updateObservables();
+    updatePlots();
+    setStatus("READY");
+  } catch(e) {
+    showError("Computation error: " + e.message);
+    setStatus("ERROR");
+    console.error(e);
+  }
+}
+
+// ── UPDATE OBSERVABLES PANEL ──────────────────────────────────
+function updateObservables() {
+  const d = computedData;
+  if (!d) return;
+
+  const piv = d.pivots[state.Nstar];
+  if (!piv) {
+    setObs("ns",  "—", false, "no pivot found");
+    setObs("r",   "—", false, "");
+    setObs("eps", "—", false, "");
+    setObs("eta", "—", false, "");
+    document.getElementById("val_phi").textContent = "— / —";
+    return;
+  }
+
+  const ns  = piv.ns;
+  const r   = piv.r;
+  const eps = piv.eps_star;
+  const eta = piv.eta_star;
+  const phi_star = piv.phi_star;
+  const phi_end  = d.phi_end;
+
+  const nsOk = (ns >= 0.960 && ns <= 0.975);
+  const rOk  = (r < 0.064);
+
+  setObs("ns",  ns.toFixed(5),  nsOk, `Planck 2018: 0.960–0.975`);
+  setObs("r",   r.toFixed(5),   rOk,  `Planck+BK: < 0.064`);
+  setObs("eps", eps.toExponential(3), eps < 0.1, `Slow-roll: ε ≪ 1`);
+  setObs("eta", eta.toExponential(3), Math.abs(eta) < 0.1, `Slow-roll: |η| ≪ 1`);
+  document.getElementById("val_phi").textContent =
+    `${phi_star.toFixed(3)}  /  ${phi_end.toFixed(3)}`;
+}
+
+function setObs(key, val, ok, sub) {
+  const card  = document.getElementById("obs_" + key);
+  const valEl = document.getElementById("val_" + key);
+  valEl.textContent = val;
+  card.className = "obs-card " + (ok ? "ok" : (val === "—" ? "" : "bad"));
+}
+
+// ── PLOTLY DARK THEME ─────────────────────────────────────────
+const PLT = {
+  paper_bgcolor: "rgba(0,0,0,0)",
+  plot_bgcolor:  "rgba(12,16,20,1)",
+  font: { family: "'Share Tech Mono', monospace", color: "#7a9aaa", size: 11 },
+  xaxis: {
+    gridcolor: "#15232d", zerolinecolor: "#1c3040", linecolor: "#1c3040",
+    tickfont: { family: "'Share Tech Mono', monospace", color: "#5a7080" },
+  },
+  yaxis: {
+    gridcolor: "#15232d", zerolinecolor: "#1c3040", linecolor: "#1c3040",
+    tickfont: { family: "'Share Tech Mono', monospace", color: "#5a7080" },
+  },
+  legend: { bgcolor: "rgba(12,16,20,0.8)", bordercolor: "#1c3040", borderwidth: 1, font: {color:"#7a9aaa"} },
+  margin: { l: 54, r: 20, t: 20, b: 44 },
+  hovermode: "closest",
+};
+
+const COLORS = {
+  amber:  "#e8a020",
+  cyan:   "#20c0d0",
+  green:  "#30d080",
+  red:    "#e05040",
+  purple: "#9060d0",
+  blue:   "#4090e0",
+  orange: "#f07030",
+  pink:   "#d04080",
+};
+
+const PLOTLY_CONFIG = { responsive: true, displayModeBar: false };
+
+// ── PLOTS INIT ─────────────────────────────────────────────────
+function initPlots() {
+  const emptyLayout = (yTitle, xTitle) => ({
+    ...PLT,
+    xaxis: { ...PLT.xaxis, title: { text: xTitle, font:{color:"#5a7080",size:11} } },
+    yaxis: { ...PLT.yaxis, title: { text: yTitle, font:{color:"#5a7080",size:11} } },
+  });
+
+  Plotly.newPlot("plotV",     [], emptyLayout("V(φ) [CMB norm.]", "φ / Mₚₗ"), PLOTLY_CONFIG);
+  Plotly.newPlot("plotSR",    [], emptyLayout("ε(φ),  η(φ)",      "φ / Mₚₗ"), PLOTLY_CONFIG);
+  Plotly.newPlot("plotN",     [], emptyLayout("N (e-folds)",       "φ / Mₚₗ"), PLOTLY_CONFIG);
+  Plotly.newPlot("plotPhase", [], emptyLayout("dφ/dN",             "φ / Mₚₗ"), PLOTLY_CONFIG);
+  Plotly.newPlot("plotNsR",   [], { ...PLT, xaxis: {...PLT.xaxis, title:{text:"nₛ"}}, yaxis: {...PLT.yaxis, title:{text:"r"}} }, PLOTLY_CONFIG);
+  Plotly.newPlot("plotPS",    [], emptyLayout("Power Spectrum",    "N (e-folds)"), PLOTLY_CONFIG);
+}
+
+// ── UPDATE ALL PLOTS ───────────────────────────────────────────
+function updatePlots() {
+  const d = computedData;
+  if (!d) return;
+
+  const phiArr = Array.from(d.phi);
+  const piv    = d.pivots;
+
+  // Helper: mask invalid
+  function masked(arr) {
+    return Array.from(arr).map(v => (isFinite(v) && v > 0) ? v : null);
+  }
+  function maskedAll(arr) {
+    return Array.from(arr).map(v => isFinite(v) ? v : null);
+  }
+
+  // ── Plot 1: V(φ) ─────────────────────────────────────────
+  {
+    const traces = [{
+      x: phiArr, y: masked(d.V_plot),
+      type: "scatter", mode: "lines",
+      name: "V(φ)",
+      line: { color: COLORS.amber, width: 2.5 },
+      hovertemplate: "φ=%{x:.3f}<br>V=%{y:.3e}<extra></extra>",
+    }];
+
+    const shapes = [], annotations = [];
+    // phi_end
+    shapes.push({ type:"line", x0:d.phi_end, x1:d.phi_end, y0:0, y1:1,
+      yref:"paper", line:{color:COLORS.red, width:1.5, dash:"dash"} });
+    annotations.push({ x:d.phi_end, y:0.95, yref:"paper", text:"ε=1", showarrow:false,
+      font:{color:COLORS.red, size:10}, bgcolor:"rgba(12,16,20,0.7)" });
+
+    const pivCols = {50:COLORS.green, 55:COLORS.red, 60:COLORS.amber};
+    const showBoth = state.showBothN;
+    const toShow = showBoth ? [50,55,60] : [state.Nstar];
+    toShow.forEach(Ns => {
+      if (!piv[Ns]) return;
+      const col = pivCols[Ns];
+      shapes.push({ type:"line", x0:piv[Ns].phi_star, x1:piv[Ns].phi_star,
+        y0:0, y1:1, yref:"paper", line:{color:col, width:1.2, dash:"dot"} });
+      annotations.push({ x:piv[Ns].phi_star, y:0.7 - 0.12*(Ns-50)/10, yref:"paper",
+        text:`N=${Ns}`, showarrow:false, font:{color:col, size:9}, bgcolor:"rgba(12,16,20,0.7)" });
+    });
+
+    const logV = document.getElementById("logVaxis").checked;
+    Plotly.react("plotV", traces, {
+      ...PLT,
+      xaxis: { ...PLT.xaxis, title:{text:"φ / Mₚₗ", font:{color:"#5a7080",size:11}} },
+      yaxis: { ...PLT.yaxis, title:{text:"V(φ) [CMB norm.]", font:{color:"#5a7080",size:11}},
+               type: logV ? "log" : "linear" },
+      shapes, annotations,
+    }, PLOTLY_CONFIG);
+  }
+
+  // ── Plot 2: Slow-roll ε, η ──────────────────────────────
+  {
+    const epsDisp = Array.from(d.eps).map(v => (isFinite(v) && v > 0 && v < 1e4) ? v : null);
+    const etaDisp = Array.from(d.eta).map(v => (isFinite(v) && Math.abs(v) < 1e4) ? v : null);
+
+    const traces = [
+      { x:phiArr, y:epsDisp, type:"scatter", mode:"lines", name:"ε(φ)",
+        line:{color:COLORS.amber, width:2.5},
+        hovertemplate:"φ=%{x:.3f}<br>ε=%{y:.4f}<extra></extra>" },
+      { x:phiArr, y:etaDisp, type:"scatter", mode:"lines", name:"η(φ)",
+        line:{color:COLORS.cyan, width:2, dash:"dot"},
+        hovertemplate:"φ=%{x:.3f}<br>η=%{y:.4f}<extra></extra>", yaxis:"y2" },
+    ];
+
+    const shapes = [
+      { type:"line", x0:phiArr[0], x1:phiArr[phiArr.length-1], y0:1, y1:1,
+        line:{color:COLORS.red, width:1.2, dash:"dash"} },
+      { type:"line", x0:d.phi_end, x1:d.phi_end, y0:0, y1:1, yref:"paper",
+        line:{color:COLORS.red, width:1.5, dash:"dash"} },
+    ];
+
+    Plotly.react("plotSR", traces, {
+      ...PLT,
+      xaxis: { ...PLT.xaxis, title:{text:"φ / Mₚₗ", font:{color:"#5a7080",size:11}} },
+      yaxis: { ...PLT.yaxis, title:{text:"ε(φ)", font:{color:COLORS.amber,size:11}},
+               side:"left", type:"log" },
+      yaxis2: { ...PLT.yaxis, title:{text:"η(φ)", font:{color:COLORS.cyan,size:11}},
+                side:"right", overlaying:"y", showgrid:false },
+      shapes,
+      legend: { ...PLT.legend, x:0.02, y:0.98 },
+      margin: { ...PLT.margin, r:54 },
+    }, PLOTLY_CONFIG);
+  }
+
+  // ── Plot 3: N(φ) ────────────────────────────────────────
+  {
+    const Ndisp = Array.from(d.N_arr).map(v => (isFinite(v) && v >= 0 && v < 300) ? v : null);
+
+    const traces = [{
+      x:phiArr, y:Ndisp, type:"scatter", mode:"lines", name:"N(φ)",
+      line:{color:COLORS.cyan, width:2.5},
+      hovertemplate:"φ=%{x:.3f}<br>N=%{y:.2f}<extra></extra>",
+    }];
+    const shapes = [];
+    const annotations = [];
+
+    [50,55,60].forEach(Ns => {
+      const col = {50:COLORS.green, 55:COLORS.orange, 60:COLORS.amber}[Ns];
+      shapes.push({ type:"line", x0:phiArr[0], x1:phiArr[phiArr.length-1],
+        y0:Ns, y1:Ns, line:{color:col, width:1, dash:"dot"} });
+      if (piv[Ns]) {
+        shapes.push({ type:"line", x0:piv[Ns].phi_star, x1:piv[Ns].phi_star,
+          y0:0, y1:Ns, line:{color:col, width:1, dash:"dot"} });
+        annotations.push({ x:piv[Ns].phi_star, y:Ns, text:`N=${Ns}`, showarrow:false,
+          xanchor:"left", yanchor:"bottom", font:{color:col, size:9} });
+      }
+    });
+    shapes.push({ type:"line", x0:d.phi_end, x1:d.phi_end, y0:0, y1:1, yref:"paper",
+      line:{color:COLORS.red, width:1.5, dash:"dash"} });
+
+    Plotly.react("plotN", traces, {
+      ...PLT,
+      xaxis: { ...PLT.xaxis, title:{text:"φ / Mₚₗ", font:{color:"#5a7080",size:11}} },
+      yaxis: { ...PLT.yaxis, title:{text:"N (e-folds)", font:{color:"#5a7080",size:11}},
+               range:[0, Math.min(150, Math.max(...Ndisp.filter(Boolean))*1.1)] },
+      shapes, annotations,
+    }, PLOTLY_CONFIG);
+  }
+
+  // ── Plot 4: Phase portrait ──────────────────────────────
+  {
+    const dphiDisp = Array.from(d.dphidN).map(v => (isFinite(v) && Math.abs(v)<50) ? v : null);
+    const traces = [{
+      x:phiArr, y:dphiDisp, type:"scatter", mode:"lines", name:"dφ/dN ≈ −V′/V",
+      line:{color:COLORS.purple, width:2.5},
+      hovertemplate:"φ=%{x:.3f}<br>dφ/dN=%{y:.4f}<extra></extra>",
+    }];
+    Plotly.react("plotPhase", traces, {
+      ...PLT,
+      xaxis: { ...PLT.xaxis, title:{text:"φ / Mₚₗ", font:{color:"#5a7080",size:11}} },
+      yaxis: { ...PLT.yaxis, title:{text:"dφ/dN", font:{color:"#5a7080",size:11}} },
+      shapes: [{ type:"line", x0:phiArr[0], x1:phiArr[phiArr.length-1], y0:0, y1:0,
+        line:{color:"#1c3040", width:1} }],
+    }, PLOTLY_CONFIG);
+  }
+
+  // ── Plot 5: nₛ–r plane ──────────────────────────────────
+  {
+    // Build Planck contour ellipses
+    const theta = Array.from({length:200}, (_,i) => i * 2*PI/199);
+    const e1_ns = theta.map(t => PLANCK_NS_CENTER + PLANCK_1S_NS * Math.cos(t));
+    const e1_r  = theta.map(t => Math.max(0, PLANCK_R_CENTER + PLANCK_1S_R * (Math.sin(t)+1)/2));
+    const e2_ns = theta.map(t => PLANCK_NS_CENTER + PLANCK_2S_NS * Math.cos(t));
+    const e2_r  = theta.map(t => Math.max(0, PLANCK_R_CENTER + PLANCK_2S_R * (Math.sin(t)+1)/2));
+
+    // Reference model trajectories
+    const nArr = [50,52,54,56,58,60,62,64,66,68,70];
+    const staro_ns = nArr.map(n => 1 - 2/n);
+    const staro_r  = nArr.map(n => 12/(n*n));
+    const phi2_ns  = nArr.map(n => 1 - 2/n);
+    const phi2_r   = nArr.map(n => 8/n);
+    const phi4_ns  = nArr.map(n => 1 - 3/n);
+    const phi4_r   = nArr.map(n => 16/n);
+
+    const traces = [
+      // Planck contours
+      { x:e2_ns, y:e2_r, type:"scatter", mode:"lines", name:"Planck 2σ",
+        fill:"toself", fillcolor:"rgba(64,160,240,0.08)",
+        line:{color:"rgba(64,160,240,0.4)", width:1.2, dash:"dot"},
+        hoverinfo:"skip" },
+      { x:e1_ns, y:e1_r, type:"scatter", mode:"lines", name:"Planck 1σ",
+        fill:"toself", fillcolor:"rgba(64,160,240,0.22)",
+        line:{color:"rgba(64,160,240,0.6)", width:1.5},
+        hoverinfo:"skip" },
+      // Reference trajectories
+      { x:staro_ns, y:staro_r, type:"scatter", mode:"lines+markers", name:"Starobinsky",
+        line:{color:COLORS.cyan, width:1.5, dash:"dash"},
+        marker:{size:5, color:COLORS.cyan},
+        hovertemplate:"Starobinsky<br>n_s=%{x:.4f}  r=%{y:.4f}<extra></extra>" },
+      { x:phi2_ns, y:phi2_r, type:"scatter", mode:"lines+markers", name:"φ² chaotic",
+        line:{color:COLORS.orange, width:1.5, dash:"dash"},
+        marker:{size:5, color:COLORS.orange},
+        hovertemplate:"φ² Chaotic<br>n_s=%{x:.4f}  r=%{y:.4f}<extra></extra>" },
+      { x:phi4_ns, y:phi4_r, type:"scatter", mode:"lines+markers", name:"φ⁴ chaotic",
+        line:{color:COLORS.purple, width:1.5, dash:"dash"},
+        marker:{size:5, color:COLORS.purple},
+        hovertemplate:"φ⁴ Chaotic<br>n_s=%{x:.4f}  r=%{y:.4f}<extra></extra>" },
+    ];
+
+    // User model points
+    const pivCfg = {
+      50: { col: COLORS.green,  sym: "diamond", },
+      55: { col: COLORS.red,    sym: "cross"    },
+      60: { col: COLORS.amber,  sym: "star"     },
+    };
+    Object.entries(pivCfg).forEach(([Ns, cfg]) => {
+      const p = piv[parseInt(Ns)];
+      if (!p) return;
+      traces.push({
+        x:[p.ns], y:[p.r],
+        type:"scatter", mode:"markers",
+        name: `Your model  N=${Ns}`,
+        marker:{ size:18, color:cfg.col, symbol:cfg.sym,
+                 line:{color:"white", width:1.5},
+                 opacity: parseInt(Ns)===state.Nstar ? 1 : 0.5 },
+        hovertemplate:`N=${Ns}<br>nₛ=%{x:.5f}<br>r=%{y:.5f}<extra></extra>`,
+      });
+    });
+
+    Plotly.react("plotNsR", traces, {
+      ...PLT,
+      xaxis: { ...PLT.xaxis, title:{text:"nₛ", font:{color:"#5a7080",size:11}},
+               range:[0.93, 0.985] },
+      yaxis: { ...PLT.yaxis, title:{text:"r", font:{color:"#5a7080",size:11}},
+               range:[-0.004, 0.22] },
+      margin: { ...PLT.margin, b:50 },
+      shapes: [
+        { type:"line", x0:0.93, x1:0.985, y0:PLANCK_R_MAX, y1:PLANCK_R_MAX,
+          line:{color:COLORS.red, width:1, dash:"dot"} },
+      ],
+      annotations: [
+        { x:0.933, y:PLANCK_R_MAX, xanchor:"left", yanchor:"bottom",
+          text:`r = ${PLANCK_R_MAX} (Planck+BK limit)`,
+          showarrow:false, font:{color:COLORS.red, size:9} },
+      ],
+    }, PLOTLY_CONFIG);
+  }
+
+  // ── Plot 6: Power spectra ───────────────────────────────
+  {
+    const p = piv[state.Nstar];
+    if (p) {
+      // Plot over inflationary domain (N > 0)
+      const Narr = Array.from(d.N_arr);
+      const xs   = [], PRs = [], PTs = [];
+      for (let i = 0; i < Narr.length; i++) {
+        if (Narr[i] >= 0 && Narr[i] <= 120 && isFinite(p.PR_arr[i]) && p.PR_arr[i] > 0 && isFinite(p.PT_arr[i])) {
+          xs.push(Narr[i]);
+          PRs.push(p.PR_arr[i]);
+          PTs.push(p.PT_arr[i]);
+        }
+      }
+      const Nstar_val = d.N_arr[p.idx_star];
+
+      const traces = [
+        { x:xs, y:PRs, type:"scatter", mode:"lines", name:"Scalar 𝒫ℛ",
+          line:{color:COLORS.blue, width:2.5},
+          hovertemplate:"N=%{x:.2f}<br>𝒫ℛ=%{y:.2e}<extra></extra>" },
+        { x:xs, y:PTs, type:"scatter", mode:"lines", name:"Tensor 𝒫T",
+          line:{color:COLORS.red, width:2, dash:"dot"},
+          hovertemplate:"N=%{x:.2f}<br>𝒫T=%{y:.2e}<extra></extra>" },
+      ];
+
+      Plotly.react("plotPS", traces, {
+        ...PLT,
+        xaxis: { ...PLT.xaxis, title:{text:"N (e-folds from end)", font:{color:"#5a7080",size:11}} },
+        yaxis: { ...PLT.yaxis, title:{text:"Power Spectrum", font:{color:"#5a7080",size:11}},
+                 type:"log" },
+        shapes: [
+          { type:"line", x0:Nstar_val, x1:Nstar_val, y0:0, y1:1, yref:"paper",
+            line:{color:COLORS.amber, width:1.5, dash:"dash"} },
+          { type:"line", x0:0, x1:xs[xs.length-1]||80, y0:As, y1:As,
+            line:{color:COLORS.green, width:1, dash:"dot"} },
+        ],
+        annotations: [
+          { x:Nstar_val, y:0.92, yref:"paper", text:`Pivot N=${state.Nstar}`,
+            showarrow:false, font:{color:COLORS.amber, size:10}, xanchor:"left" },
+          { x:(xs[xs.length-1]||80)*0.85, y:As*1.5, text:"Aₛ = 2.1×10⁻⁹",
+            showarrow:false, font:{color:COLORS.green, size:9} },
+        ],
+      }, PLOTLY_CONFIG);
+    }
+  }
+}
+
+// ── ERROR / STATUS ─────────────────────────────────────────────
+function showError(msg) {
+  const el = document.getElementById("parseError");
+  el.textContent = "⚠ " + msg;
+  el.classList.add("visible");
+}
+function hideError() {
+  document.getElementById("parseError").classList.remove("visible");
+}
+function setStatus(msg) {
+  document.getElementById("statusText").textContent = msg;
+}
+
+// ── PRESET CHANGE ─────────────────────────────────────────────
+document.getElementById("presetSelect").addEventListener("change", function() {
+  state.preset = this.value;
+  state.params = {};  // reset params
+
+  const preset = PRESETS[state.preset];
+  if (preset) {
+    document.getElementById("customExpr").value = "";
+    state.customExpr = "";
+    document.getElementById("phiMin").value = preset.phiMin || 0.01;
+    document.getElementById("phiMax").value = preset.phiMax || 25;
+    updateSliderFill(document.getElementById("phiMin"));
+    updateSliderFill(document.getElementById("phiMax"));
+    document.getElementById("latexDisplay").textContent = preset.latex || preset.expr;
+  } else {
+    document.getElementById("latexDisplay").textContent = "Enter expression above…";
+  }
+
+  buildParamPanel();
+  scheduleUpdate();
+});
+
+// ── CUSTOM EXPRESSION ─────────────────────────────────────────
+document.getElementById("customExpr").addEventListener("input", function() {
+  state.customExpr = this.value.trim();
+  state.preset = state.customExpr ? "custom" : document.getElementById("presetSelect").value;
+  if (state.customExpr) {
+    document.getElementById("presetSelect").value = "custom";
+    // Show formatted expression
+    let display = "V(φ) = " + state.customExpr;
+    display = display.replace(/\*\*/g, "^").replace(/\*/g, "·");
+    document.getElementById("latexDisplay").textContent = display;
+  }
+  buildParamPanel();
+  scheduleUpdate();
+});
+
+function clearCustom() {
+  document.getElementById("customExpr").value = "";
+  state.customExpr = "";
+  document.getElementById("latexDisplay").textContent = "Enter expression above…";
+  buildParamPanel();
+  scheduleUpdate();
+}
+
+// ── N★ SELECTOR ───────────────────────────────────────────────
+function setNstar(n) {
+  state.Nstar = n;
+  [50,55,60].forEach(v => {
+    document.getElementById("nBtn"+v).className = "n-btn" + (v===n ? " active" : "");
+  });
+  updateObservables();
+  updatePlots();
+}
+
+// ── RESET ─────────────────────────────────────────────────────
+function resetDefaults() {
+  document.getElementById("presetSelect").value = "quadratic";
+  state.preset = "quadratic";
+  state.customExpr = "";
+  state.params = {};
+  state.Nstar = 60;
+  document.getElementById("customExpr").value = "";
+  document.getElementById("phiMin").value = 0.01;
+  document.getElementById("phiMax").value = 20;
+  updateSliderFill(document.getElementById("phiMin"));
+  updateSliderFill(document.getElementById("phiMax"));
+  const preset = PRESETS["quadratic"];
+  document.getElementById("latexDisplay").textContent = preset.latex;
+  setNstar(60);
+  buildParamPanel();
+  scheduleUpdate();
+}
+
+// ── EXPORT DATA ───────────────────────────────────────────────
+function exportData() {
+  if (!computedData) return;
+  const d = computedData;
+  const p = d.pivots[state.Nstar];
+  const lines = ["# InflationLab Export", `# Model: ${state.preset}`, "# phi,V,eps,eta,N"];
+  for (let i = 0; i < d.phi.length; i++) {
+    lines.push(`${d.phi[i].toFixed(6)},${d.V[i]?.toExponential(6) ?? ""},${d.eps[i]?.toFixed(8) ?? ""},${d.eta[i]?.toFixed(8) ?? ""},${d.N_arr[i]?.toFixed(6) ?? ""}`);
+  }
+  if (p) {
+    lines.push(`# ns=${p.ns.toFixed(6)},r=${p.r.toFixed(6)},eps_star=${p.eps_star.toExponential(4)},eta_star=${p.eta_star.toExponential(4)}`);
+  }
+  const blob = new Blob([lines.join("\n")], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "inflationlab_data.csv";
+  a.click();
+}
+
+// ── INITIALIZE ────────────────────────────────────────────────
+function init() {
+  // Init slider fills
+  updateSliderFill(document.getElementById("phiMin"));
+  updateSliderFill(document.getElementById("phiMax"));
+
+  // Set default preset
+  const preset = PRESETS["quadratic"];
+  document.getElementById("latexDisplay").textContent = preset.latex;
+
+  initPlots();
+  buildParamPanel();
+  scheduleUpdate();
+}
+
+window.addEventListener("load", init);
+</script>
+</body>
+</html>
