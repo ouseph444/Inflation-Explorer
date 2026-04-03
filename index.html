@@ -1,0 +1,3335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>INFLATION EXPLORER — Slow-Roll Cosmology Console</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<!-- html2pdf for PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+/* ============================================================
+   DESIGN SYSTEM — Scientific Console / Phosphor Terminal
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Oxanium:wght@300;400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap');
+
+:root {
+  --bg:          #080b0e;
+  --bg2:         #0c1014;
+  --bg3:         #111820;
+  --panel:       #0f161d;
+  --border:      #1c2d3a;
+  --border2:     #253545;
+  --amber:       #e8a020;
+  --amber-dim:   #7a5010;
+  --amber-glow:  #f0c060;
+  --cyan:        #20c0d0;
+  --cyan-dim:    #0a4850;
+  --green:       #30d080;
+  --green-dim:   #0a3820;
+  --red:         #e05040;
+  --red-dim:     #3a1510;
+  --blue:        #4090e0;
+  --purple:      #9060d0;
+  --text:        #c8d8e0;
+  --text-dim:    #5a7080;
+  --text-bright: #e8f0f4;
+  --mono:        'Share Tech Mono', 'DM Mono', monospace;
+  --display:     'Oxanium', sans-serif;
+}
+
+/* ── THEMES ───────────────────────────────────────────── */
+body.theme-light {
+  --bg:          #f4f7f9;
+  --bg2:         #e8eef2;
+  --bg3:         #ffffff;
+  --panel:       #ffffff;
+  --border:      #d1dce5;
+  --border2:     #b0c4d4;
+  --text:        #2d3a45;
+  --text-dim:    #5a7080;
+  --text-bright: #141b22;
+  --amber:       #d88000;
+  --cyan:        #0090a8;
+  --green:       #109050;
+  --red:         #d03020;
+}
+body.theme-classic {
+  --bg:          #ffffff;
+  --bg2:         #f0f0f0;
+  --bg3:         #fafafa;
+  --panel:       #ffffff;
+  --border:      #cccccc;
+  --border2:     #aaaaaa;
+  --text:        #000000;
+  --text-dim:    #555555;
+  --text-bright: #000000;
+  --amber:       #666666;
+  --cyan:        #333333;
+  --green:       #000000;
+  --red:         #000000;
+  --amber-dim:   #999999;
+  --amber-glow:  #444444;
+}
+
+/* UX Suggestion: A modal container allows better interaction with dense scientific plots. */
+/* ── PLOT MODAL ───────────────────────────────────────── */
+.plot-modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+}
+.plot-modal-overlay.visible { display: flex; }
+.plot-modal-content {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  width: 90vw; height: 90vh; padding: 20px; position: relative; display: flex; flex-direction: column;
+}
+.plot-modal-close {
+  position: absolute; top: 12px; right: 20px; cursor: pointer;
+  font-size: 1.5rem; color: var(--text-dim); line-height: 1; z-index: 2001;
+}
+.plot-modal-close:hover { color: var(--red); }
+.plot-modal-body { flex: 1; width: 100%; height: 100%; position: relative; }
+
+/* ── EXTRA UI ─────────────────────────────────────────── */
+.btn-icon {
+  background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+  border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 0.8rem;
+  transition: 0.2s;
+}
+.btn-icon:hover { color: var(--amber); border-color: var(--amber); }
+.plot-header { display: flex; align-items: center; justify-content: space-between; }
+.plot-controls { display: flex; gap: 6px; }
+
+.manual-input {
+  width: 60px; background: transparent; border: 1px solid var(--border2);
+  color: var(--cyan); font-family: var(--mono); font-size: 0.75rem; text-align: right;
+  border-radius: 3px; outline: none; padding: 2px 4px; transition: 0.2s;
+}
+.manual-input:focus { border-color: var(--amber); box-shadow: 0 0 3px rgba(232,160,32,0.3); }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 13px; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image:
+    linear-gradient(rgba(32,192,208,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(32,192,208,0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── SCANLINE overlay ─────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.06) 2px,
+    rgba(0,0,0,0.06) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── HEADER ───────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(90deg, rgba(15,22,29,0.98) 0%, rgba(12,16,20,0.98) 100%);
+  position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(8px);
+}
+
+.header-left {
+  display: flex; align-items: baseline; gap: 16px;
+}
+
+.logo {
+  font-family: var(--display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  text-shadow: 0 0 20px rgba(232,160,32,0.4);
+}
+
+.logo span {
+  color: var(--cyan);
+  text-shadow: 0 0 20px rgba(32,192,208,0.4);
+}
+
+.subtitle {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.header-right {
+  display: flex; gap: 8px; align-items: center;
+}
+
+.status-led {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: blink 2.4s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+
+.status-text { font-size: 0.72rem; color: var(--green); letter-spacing: 0.08em; }
+
+/* ── LAYOUT ───────────────────────────────────────────── */
+.app-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 53px);
+}
+
+/* ── SIDEBAR ──────────────────────────────────────────── */
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 0;
+  overflow-y: auto;
+  height: calc(100vh - 53px);
+  position: sticky; top: 53px;
+}
+
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: var(--bg2); }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.section-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  font-family: var(--display);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  background: rgba(32,192,208,0.04);
+  display: flex; align-items: center; gap: 8px;
+}
+
+.section-header .icon { color: var(--amber); }
+
+.section-body { padding: 14px 16px; }
+
+/* ── PRESET SELECT ────────────────────────────────────── */
+.field-label {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+select, input[type="text"] {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text-bright);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  padding: 8px 10px;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  appearance: none;
+  cursor: pointer;
+}
+
+select:focus, input[type="text"]:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px rgba(232,160,32,0.15), inset 0 1px 3px rgba(0,0,0,0.3);
+}
+
+select option { background: #0f1a24; }
+
+.custom-expr-wrap { position: relative; }
+
+.custom-expr-wrap input {
+  padding-right: 36px;
+  font-size: 0.88rem;
+}
+
+.expr-clear {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  color: var(--text-dim); cursor: pointer; font-size: 1rem;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.expr-clear:hover { color: var(--amber); }
+
+.latex-display {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(232,160,32,0.06);
+  border-left: 2px solid var(--amber-dim);
+  border-radius: 0 4px 4px 0;
+  font-size: 0.78rem;
+  color: var(--amber-glow);
+  min-height: 30px;
+  word-break: break-all;
+  transition: all 0.2s;
+}
+
+/* ── SLIDERS ──────────────────────────────────────────── */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.slider-label {
+  font-size: 0.78rem;
+  color: var(--amber-glow);
+  min-width: 52px;
+  font-style: italic;
+}
+
+.slider-value {
+  min-width: 68px;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--cyan);
+  font-family: var(--mono);
+}
+
+input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  background: linear-gradient(90deg, var(--amber) var(--pct, 50%), var(--border2) var(--pct, 50%));
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 6px rgba(232,160,32,0.5);
+  transition: transform 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:active {
+  transform: scale(1.4);
+}
+
+/* ── BUTTONS ──────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.18s;
+  text-transform: uppercase;
+}
+
+.btn:hover { border-color: var(--amber); color: var(--amber); background: rgba(232,160,32,0.07); }
+.btn:active { transform: scale(0.97); }
+
+.btn-primary {
+  background: rgba(232,160,32,0.12);
+  border-color: var(--amber-dim);
+  color: var(--amber-glow);
+}
+.btn-primary:hover { background: rgba(232,160,32,0.22); border-color: var(--amber); }
+
+.btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ── OBSERVABLES PANEL ────────────────────────────────── */
+.obs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.obs-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+
+.obs-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--amber), transparent);
+  opacity: 0.4;
+}
+
+.obs-card.ok  { border-color: var(--green-dim); }
+.obs-card.ok::before  { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+.obs-card.bad { border-color: var(--red-dim); }
+.obs-card.bad::before { background: linear-gradient(90deg, transparent, var(--red), transparent); }
+
+.obs-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+
+.obs-value {
+  font-family: var(--display);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-bright);
+  line-height: 1;
+}
+
+.obs-card.ok  .obs-value { color: var(--green); }
+.obs-card.bad .obs-value { color: var(--red); }
+
+.obs-sub {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+
+/* ── TOOLTIP ──────────────────────────────────────────── */
+.tip {
+  position: relative;
+  display: inline-block;
+  cursor: help;
+  color: var(--cyan);
+  font-size: 0.7rem;
+}
+.tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%; bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  background: #0a1a24;
+  border: 1px solid var(--cyan-dim);
+  color: var(--text);
+  font-size: 0.72rem;
+  padding: 7px 10px;
+  border-radius: 5px;
+  white-space: pre-wrap;
+  width: 220px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 999;
+  line-height: 1.5;
+}
+.tip:hover::after { opacity: 1; }
+
+/* ── MAIN CONTENT ─────────────────────────────────────── */
+.main-content { overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+/* ── EQUATION BAR ─────────────────────────────────────── */
+.equation-bar {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.eq-item { display: flex; flex-direction: column; justify-content: flex-end; }
+.eq-title {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 4px;
+}
+.eq-expr {
+  font-size: 0.88rem;
+  color: var(--amber-glow);
+  font-family: var(--mono);
+}
+
+/* ── PLOT GRID ────────────────────────────────────────── */
+.plot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.plot-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.25s;
+}
+
+.plot-card:hover { border-color: var(--border2); }
+
+.plot-card.full-width { grid-column: 1 / -1; }
+
+.plot-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.plot-title {
+  font-family: var(--display);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-bright);
+}
+
+.plot-desc {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.plot-body { padding: 4px; }
+
+/* ── INFO / DESCRIPTION ───────────────────────────────── */
+.info-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 24px;
+}
+
+.info-panel h2 {
+  font-family: var(--display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  margin-bottom: 12px;
+}
+
+.info-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.info-block h3 {
+  font-size: 0.72rem;
+  color: var(--cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+  font-family: var(--display);
+}
+
+.info-block p {
+  font-size: 0.78rem;
+  color: var(--text);
+  line-height: 1.65;
+}
+
+.info-block code {
+  background: rgba(232,160,32,0.1);
+  color: var(--amber-glow);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: var(--mono);
+}
+
+/* ── ERROR ────────────────────────────────────────────── */
+.error-msg {
+  display: none;
+  background: rgba(224,80,64,0.1);
+  border: 1px solid var(--red-dim);
+  color: var(--red);
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  margin-top: 8px;
+}
+.error-msg.visible { display: block; }
+
+/* ── LOADING ──────────────────────────────────────────── */
+.computing-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(8,11,14,0.7);
+  z-index: 500;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 12px;
+  font-family: var(--display);
+  color: var(--amber);
+  letter-spacing: 0.15em;
+  font-size: 0.85rem;
+}
+.computing-overlay.visible { display: flex; }
+
+.spinner {
+  width: 36px; height: 36px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--amber);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── SCAN LINE ANIMATION ──────────────────────────────── */
+.plot-body { position: relative; }
+
+/* ── PLANCK LEGEND ────────────────────────────────────── */
+.planck-legend {
+  display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  padding: 6px 16px;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+}
+.planck-legend span { display: flex; align-items: center; gap: 5px; }
+.planck-legend .dot {
+  width: 10px; height: 10px; border-radius: 2px;
+}
+
+/* ── TABS ─────────────────────────────────────────────── */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+.tab {
+  padding: 7px 14px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  transition: color 0.2s, border-color 0.2s;
+}
+.tab.active { color: var(--amber); border-bottom-color: var(--amber); }
+.tab:hover:not(.active) { color: var(--text); }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── DIVIDER ──────────────────────────────────────────── */
+.divider { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+
+/* ── CHECKBOX ─────────────────────────────────────────── */
+.checkbox-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.75rem; color: var(--text);
+  cursor: pointer; margin-bottom: 6px;
+}
+.checkbox-row input[type="checkbox"] {
+  width: 14px; height: 14px; cursor: pointer;
+  accent-color: var(--amber);
+}
+
+/* ── N selector ───────────────────────────────────────── */
+.n-selector { display: flex; gap: 6px; }
+.n-btn {
+  flex: 1; padding: 6px;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.18s;
+}
+.n-btn.active { border-color: var(--amber); color: var(--amber); background: rgba(232,160,32,0.1); }
+.n-btn:hover:not(.active) { border-color: var(--border2); color: var(--text); }
+
+/* ── RESPONSIVE ───────────────────────────────────────── */
+@media (max-width: 900px) {
+  .app-grid { grid-template-columns: 1fr; }
+  .sidebar { height: auto; position: relative; top: 0; }
+  .plot-grid { grid-template-columns: 1fr; }
+  .plot-card.full-width { grid-column: 1; }
+}
+
+/* ── GLOW PULSE ───────────────────────────────────────── */
+@keyframes glowPulse {
+  0%,100% { box-shadow: 0 0 4px rgba(232,160,32,0.2); }
+  50%      { box-shadow: 0 0 12px rgba(232,160,32,0.5); }
+}
+
+.obs-card { animation: glowPulse 3s ease-in-out infinite; }
+
+</style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div class="computing-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <span id="loadingText">COMPUTING SLOW-ROLL DYNAMICS</span>
+</div>
+
+<!-- PLOT MODAL -->
+<div class="plot-modal-overlay" id="plotModal">
+  <div class="plot-modal-content">
+    <div class="plot-modal-close" onclick="closePlotModal()">×</div>
+    <div id="plotModalBody" class="plot-modal-body"></div>
+  </div>
+</div>
+
+<!-- ── HEADER ──────────────────────────────────────────────── -->
+<header>
+  <div class="header-left">
+    <div class="logo">INFLATION<span>LAB</span></div>
+    <div class="subtitle">Slow-Roll Cosmology Console · M<sub>pl</sub>=1</div>
+  </div>
+  <div class="header-right">
+    <!-- Theme Switcher -->
+    <select id="themeSelect" onchange="changeTheme()" style="width: auto; padding: 4px 8px; font-size: 0.7rem; margin-right: 16px; background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 4px; cursor: pointer;">
+      <option value="dark">Dark Theme</option>
+      <option value="light">Light Theme</option>
+      <option value="classic">Classic Theme</option>
+    </select>
+    
+    <div class="status-led"></div>
+    <div class="status-text" id="statusText">READY</div>
+  </div>
+</header>
+
+<div class="app-grid">
+
+  <!-- ── SIDEBAR ─────────────────────────────────────────── -->
+  <aside class="sidebar">
+
+    <!-- MODEL SELECTION -->
+    <div class="section-header"><span class="icon">◈</span> MODEL SELECTION</div>
+    <div class="section-body">
+      <div class="field-label">
+        Potential Preset
+        <span class="tip" data-tip="Choose a standard inflationary model or define your own V(φ) below.">?</span>
+      </div>
+      <select id="presetSelect">
+        <option value="custom">— Custom Expression —</option>
+        <option value="quadratic"  selected>φ² · Chaotic (m²φ²/2)</option>
+        <option value="quartic">φ⁴ · Chaotic (λφ⁴)</option>
+        <option value="starobinsky">Starobinsky / R² (α-attractor)</option>
+        <option value="natural">Natural Inflation (cosine)</option>
+        <option value="hilltop">Hilltop Quartic</option>
+        <option value="smallfield">Small-Field Power Law</option>
+        <option value="doublewell">Double-Well / Symmetry Breaking</option>
+        <option value="axionmono">Axion Monodromy (φ^p)</option>
+        <option value="gaussian_bump">Plateau + Gaussian Bump (PBH)</option>
+        <option value="plateau">Power-Law Plateau</option>
+        <option value="higgs">Higgs-like (NMC plateau)</option>
+      </select>
+
+      <div style="margin-top:12px">
+        <div class="field-label">
+          Custom V(φ)
+          <span class="tip" data-tip="Enter any function of phi.\nUse: **, sqrt(), exp(), log(), sin(), cos(), abs()\nExample: (1 - exp(-phi))**2">?</span>
+        </div>
+        <div class="custom-expr-wrap">
+          <input type="text" id="customExpr" placeholder="e.g.  phi**4  or  (1-exp(-phi))**2"/>
+          <span class="expr-clear" onclick="clearCustom()">×</span>
+        </div>
+        <div class="latex-display" id="latexDisplay">V(φ) will appear here…</div>
+        <div class="error-msg" id="parseError">⚠ Parse error — check expression syntax.</div>
+      </div>
+    </div>
+
+    <hr class="divider"/>
+
+    <!-- PARAMETERS -->
+    <div class="section-header"><span class="icon">◐</span> PARAMETERS</div>
+    <div class="section-body" id="paramPanel">
+      <!-- dynamically injected sliders -->
+    </div>
+
+    <hr class="divider"/>
+
+    <!-- DOMAIN & PIVOT -->
+    <div class="section-header"><span class="icon">◉</span> COMPUTATION DOMAIN</div>
+    <div class="section-body">
+      <div class="field-label">φ range</div>
+      <div class="slider-row">
+        <span class="slider-label" style="font-style:normal;font-size:0.72rem">φ<sub>min</sub></span>
+        <input type="range" id="phiMin" min="0.001" max="3" step="0.01" value="0.01" oninput="syncManual('phiMin');scheduleUpdate()"/>
+        <input type="number" class="manual-input" id="phiMinVal" value="0.01" step="0.01" onchange="syncSlider('phiMin');scheduleUpdate()">
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" style="font-style:normal;font-size:0.72rem">φ<sub>max</sub></span>
+        <input type="range" id="phiMax" min="3" max="60" step="0.5" value="25" oninput="syncManual('phiMax');scheduleUpdate()"/>
+        <input type="number" class="manual-input" id="phiMaxVal" value="25.0" step="0.5" onchange="syncSlider('phiMax');scheduleUpdate()">
+      </div>
+
+      <div class="field-label" style="margin-top:10px">
+        Pivot e-folds N★
+        <span class="tip" data-tip="Number of e-folds before end of inflation at which CMB observables are evaluated. Typically 50–60.">?</span>
+      </div>
+      <div class="n-selector">
+        <div class="n-btn active" id="nBtn50" onclick="setNstar(50)">N=50</div>
+        <div class="n-btn" id="nBtn55" onclick="setNstar(55)">N=55</div>
+        <div class="n-btn" id="nBtn60" onclick="setNstar(60)">N=60</div>
+      </div>
+
+      <div style="margin-top:12px">
+        <label class="checkbox-row">
+          <input type="checkbox" id="showBothN" checked onchange="scheduleUpdate()"/>
+          Show N=50 &amp; N=60 markers
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="logVaxis" checked onchange="updatePlots()"/>
+          Log-scale V(φ) axis
+        </label>
+      </div>
+    </div>
+
+    <hr class="divider"/>
+
+    <!-- OBSERVABLES -->
+    <div class="section-header"><span class="icon">◆</span> OBSERVABLES <span class="tip" style="margin-left:4px" data-tip="Evaluated at the pivot scale φ★ corresponding to N★ e-folds before inflation ends.">?</span></div>
+    <div class="section-body">
+      <div class="obs-grid">
+        <div class="obs-card" id="obs_ns">
+          <div class="obs-label">nₛ <span class="tip" data-tip="Scalar spectral index.\nPlanck 2018: 0.960–0.975\nn_s = 1 − 6ε★ + 2η★">?</span></div>
+          <div class="obs-value" id="val_ns">—</div>
+          <div class="obs-sub">Planck: 0.960–0.975</div>
+        </div>
+        <div class="obs-card" id="obs_r">
+          <div class="obs-label">r <span class="tip" data-tip="Tensor-to-scalar ratio.\nPlanck+BICEP: r < 0.064\nr = 16ε★">?</span></div>
+          <div class="obs-value" id="val_r">—</div>
+          <div class="obs-sub">Bound: r &lt; 0.064</div>
+        </div>
+        <div class="obs-card" id="obs_eps">
+          <div class="obs-label">ε★ <span class="tip" data-tip="First slow-roll parameter at pivot.\nε = ½(V'/V)²\nSlowroll requires ε≪1">?</span></div>
+          <div class="obs-value" id="val_eps">—</div>
+          <div class="obs-sub">Slow-roll: ε ≪ 1</div>
+        </div>
+        <div class="obs-card" id="obs_eta">
+          <div class="obs-label">η★ <span class="tip" data-tip="Second slow-roll parameter.\nη = V''/V\nSlowroll requires |η|≪1">?</span></div>
+          <div class="obs-value" id="val_eta">—</div>
+          <div class="obs-sub">Slow-roll: |η| ≪ 1</div>
+        </div>
+        <div class="obs-card" style="grid-column:1/-1" id="obs_phi">
+          <div class="obs-label">φ★ / Mₚₗ &nbsp;&nbsp; φ_end / Mₚₗ</div>
+          <div class="obs-value" style="font-size:1rem;" id="val_phi">— &nbsp;/&nbsp; —</div>
+          <div class="obs-sub">Field values at pivot and inflation end</div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider"/>
+
+
+    <hr class="divider"/>
+
+    <!-- MUKHANOV-SASAKI SOLVER -->
+    <div class="section-header"><span class="icon">◎</span> MUKHANOV–SASAKI SOLVER
+      <span class="tip" style="margin-left:4px" data-tip="Solves the exact MS equation numerically for the scalar mode function uk(τ). Gives the quantum-corrected power spectrum beyond slow-roll.">?</span>
+    </div>
+    <div class="section-body">
+      <label class="checkbox-row">
+        <input type="checkbox" id="enableMS" onchange="onMSToggle()"/>
+        Enable MS integration
+      </label>
+      <div id="msPanel" style="display:none">
+        <div class="field-label" style="margin-top:8px">
+          k modes (log-spaced)
+          <span class="tip" data-tip="Number of k-modes sampled between k_min and k_max. More modes → smoother spectrum, slower computation.">?</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" style="font-style:normal;font-size:0.72rem">N_k</span>
+          <input type="range" id="msNk" min="10" max="80" step="5" value="30"
+                 oninput="syncManual('msNk'); scheduleMS()"/>
+          <input type="number" class="manual-input" id="msNkVal" value="30" step="5"
+                 onchange="syncSlider('msNk'); scheduleMS()">
+        </div>
+        <div class="field-label" style="margin-top:6px">
+          Sub-horizon start x₀ = k/(aH)
+          <span class="tip" data-tip="Initial condition set when mode is x₀ times inside horizon. Larger → more accurate, slower.">?</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" style="font-style:normal;font-size:0.72rem">x₀</span>
+          <input type="range" id="msX0" min="10" max="200" step="5" value="50"
+                 oninput="syncManual('msX0'); scheduleMS()"/>
+          <input type="number" class="manual-input" id="msX0Val" value="50" step="5"
+                 onchange="syncSlider('msX0'); scheduleMS()">
+        </div>
+        <!-- MS Observables -->
+        <div class="obs-grid" style="margin-top:10px" id="msObsGrid">
+          <div class="obs-card" id="obs_ms_ns">
+            <div class="obs-label">nₛ <span style="color:var(--cyan)">(MS)</span></div>
+            <div class="obs-value" id="val_ms_ns">—</div>
+            <div class="obs-sub">Spectral tilt from MS</div>
+          </div>
+          <div class="obs-card" id="obs_ms_r">
+            <div class="obs-label">r <span style="color:var(--cyan)">(MS tensor)</span></div>
+            <div class="obs-value" id="val_ms_r">—</div>
+            <div class="obs-sub">Tensor/scalar at k★</div>
+          </div>
+          <div class="obs-card" id="obs_ms_dns">
+            <div class="obs-label">Δnₛ = nₛ(MS)−nₛ(SR)</div>
+            <div class="obs-value" id="val_ms_dns">—</div>
+            <div class="obs-sub">Beyond slow-roll correction</div>
+          </div>
+          <div class="obs-card" id="obs_ms_alpha">
+            <div class="obs-label">α = dnₛ/d ln k <span style="color:var(--cyan)">(MS)</span></div>
+            <div class="obs-value" id="val_ms_alpha">—</div>
+            <div class="obs-sub">Running of spectral index</div>
+          </div>
+          <div class="obs-card" style="grid-column:1/-1" id="obs_ms_PR">
+            <div class="obs-label">𝒫ℛ at pivot <span style="color:var(--cyan)">(MS)</span></div>
+            <div class="obs-value" style="font-size:1rem" id="val_ms_PR">—</div>
+            <div class="obs-sub">vs Aₛ = 2.1×10⁻⁹ (Planck)</div>
+          </div>
+        </div>
+        <div class="error-msg" id="msError" style="margin-top:6px"></div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="section-body">
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="scheduleUpdate()">⟳ Recompute</button>
+        <button class="btn" onclick="resetDefaults()">↺ Reset</button>
+        <div style="position:relative; display:inline-block;" id="downloadDropdownContainer">
+          <button class="btn" onclick="toggleDownloadMenu()">⬇ Download</button>
+          <div id="downloadMenu" style="display:none; position:absolute; bottom:100%; left:0; background:var(--bg3); border:1px solid var(--border); border-radius:4px; padding:4px; z-index:100; min-width: 100px; margin-bottom: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+            <div style="cursor:pointer; padding:6px 10px; font-size:0.7rem; color:var(--text); border-bottom:1px solid var(--border2);" onclick="exportData()">CSV Data</div>
+            <div style="cursor:pointer; padding:6px 10px; font-size:0.7rem; color:var(--text); border-bottom:1px solid var(--border2);" onclick="downloadAllGraphs('png')">Graphs (PNG)</div>
+            <div style="cursor:pointer; padding:6px 10px; font-size:0.7rem; color:var(--text); border-bottom:1px solid var(--border2);" onclick="downloadAllGraphs('jpg')">Graphs (JPG)</div>
+            <div style="cursor:pointer; padding:6px 10px; font-size:0.7rem; color:var(--text);" onclick="downloadAllGraphs('pdf')">Report (PDF)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── MAIN CONTENT ───────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- Equation bar -->
+    <div class="equation-bar">
+      <div class="eq-item">
+        <div class="eq-title">First slow-roll param <span class="tip" data-tip="ε(φ) = ½(V′/V)²\nMeasures steepness of V.\nInflation ends when ε=1.">?</span></div>
+        <div class="eq-expr">ε(φ) = ½(V′/V)²</div>
+      </div>
+      <div class="eq-item">
+        <div class="eq-title">Second slow-roll param <span class="tip" data-tip="η(φ) = V″/V\nMeasures curvature of V.\nSlowroll: |η|≪1">?</span></div>
+        <div class="eq-expr">η(φ) = V″/V</div>
+      </div>
+      <div class="eq-item">
+        <div class="eq-title">E-folds integral <span class="tip" data-tip="N(φ) = ∫ V/V′ dφ  (M_pl=1)\nNumber of e-folds of expansion.">?</span></div>
+        <div class="eq-expr">N(φ) = ∫ V/V′ dφ</div>
+      </div>
+      <div class="eq-item">
+        <div class="eq-title">Spectral observables <span class="tip" data-tip="Evaluated at φ★ (N★ e-folds before end).\nPlanck 2018: n_s=0.965±0.004, r<0.064">?</span></div>
+        <div class="eq-expr">nₛ = 1−6ε★+2η★ &nbsp; r=16ε★</div>
+      </div>
+      <div class="eq-item">
+        <div class="eq-title">CMB normalization <span class="tip" data-tip="𝒫ℛ = V/(24π²ε) = Aₛ = 2.1×10⁻⁹\nFixes overall scale of V.">?</span></div>
+        <div class="eq-expr">𝒫ℛ = V/(24π²ε) = Aₛ</div>
+      </div>
+      <div class="eq-item">
+        <div class="eq-title">Mukhanov–Sasaki <span class="tip" data-tip="u_k″ + (k² − z″/z) u_k = 0
+z = aφ̇/H · Exact quantum mode eq.
+Gives the full power spectrum without slow-roll approximation.">?</span></div>
+        <div class="eq-expr">u_k″ + (k²−z″/z) u_k = 0</div>
+      </div>
+    </div>
+
+    <!-- PLOTS -->
+    <div class="plot-grid">
+
+      <!-- V(phi) -->
+      <div class="plot-card">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">INFLATON POTENTIAL V(φ)</div>
+            <div class="plot-desc">CMB-normalized · log scale optional</div>
+          </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="toggleLinLog('plotV')" title="Toggle Lin/Log">⬍</button>
+            <button class="btn-icon" onclick="expandPlot('plotV', 'INFLATON POTENTIAL V(φ)')" title="Enlarge Graph">⤢</button>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotV" style="height:280px"></div></div>
+      </div>
+
+      <!-- slow-roll params -->
+      <div class="plot-card">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">SLOW-ROLL PARAMETERS ε(φ), η(φ)</div>
+            <div class="plot-desc">Inflation requires ε,|η|≪1</div>
+          </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="toggleLinLog('plotSR')" title="Toggle Lin/Log">⬍</button>
+            <button class="btn-icon" onclick="expandPlot('plotSR', 'SLOW-ROLL PARAMETERS ε(φ), η(φ)')" title="Enlarge Graph">⤢</button>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotSR" style="height:280px"></div></div>
+      </div>
+
+      <!-- N(phi) -->
+      <div class="plot-card">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">NUMBER OF E-FOLDS N(φ)</div>
+            <div class="plot-desc">Integrated from end of inflation</div>
+          </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="toggleLinLog('plotN')" title="Toggle Lin/Log">⬍</button>
+            <button class="btn-icon" onclick="expandPlot('plotN', 'NUMBER OF E-FOLDS N(φ)')" title="Enlarge Graph">⤢</button>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotN" style="height:280px"></div></div>
+      </div>
+
+      <!-- Phase portrait -->
+      <div class="plot-card">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">PHASE PORTRAIT  dφ/dN vs φ</div>
+            <div class="plot-desc">Slow-roll trajectory in field space</div>
+          </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="toggleLinLog('plotPhase')" title="Toggle Lin/Log">⬍</button>
+            <button class="btn-icon" onclick="expandPlot('plotPhase', 'PHASE PORTRAIT  dφ/dN vs φ')" title="Enlarge Graph">⤢</button>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotPhase" style="height:280px"></div></div>
+      </div>
+
+      <!-- ns-r plane -->
+      <div class="plot-card full-width">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">nₛ–r PLANE WITH PLANCK 2018 CONSTRAINTS</div>
+            <div class="plot-desc">Confidence contours + reference model trajectories</div>
+          </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="toggleLinLog('plotNsR')" title="Toggle Lin/Log">⬍</button>
+            <button class="btn-icon" onclick="expandPlot('plotNsR', 'nₛ–r PLANE')" title="Enlarge Graph">⤢</button>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotNsR" style="height:340px"></div></div>
+        <div class="planck-legend">
+          <span><div class="dot" style="background:rgba(100,180,255,0.6);border:1px solid #4af"></div>Planck 2018 1σ (approx.)</span>
+          <span><div class="dot" style="background:rgba(100,180,255,0.2);border:1px solid #4af"></div>Planck 2018 2σ (approx.)</span>
+          <span><div class="dot" style="background:#20d090;border-radius:50%"></div>N=50 pivot</span>
+          <span><div class="dot" style="background:#e8a020;border-radius:50%"></div>N=60 pivot</span>
+          <span><div class="dot" style="background:#e05040;border-radius:50%"></div>N=55 pivot</span>
+        </div>
+      </div>
+
+      <!-- Power spectra -->
+      <div class="plot-card full-width">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">PRIMORDIAL POWER SPECTRA</div>
+            <div class="plot-desc">CMB-normalized scalar 𝒫ℛ and tensor 𝒫T vs e-folds N</div>
+          </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="toggleLinLog('plotPS')" title="Toggle Lin/Log">⬍</button>
+            <button class="btn-icon" onclick="expandPlot('plotPS', 'PRIMORDIAL POWER SPECTRA')" title="Enlarge Graph">⤢</button>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotPS" style="height:260px"></div></div>
+      </div>
+
+
+      <!-- MS power spectrum -->
+      <div class="plot-card full-width" id="msPSCard" style="display:none">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">MUKHANOV–SASAKI POWER SPECTRUM</div>
+            <div class="plot-desc">Exact quantum solution vs slow-roll approximation</div>
+          </div>
+          <div class="plot-controls">
+            <div id="msStatus" style="font-size:0.7rem;color:var(--text-dim);margin-right:8px"></div>
+            <button class="btn-icon" onclick="toggleLinLog('plotMSPS')" title="Toggle Lin/Log">⬍</button>
+            <button class="btn-icon" onclick="expandPlot('plotMSPS', 'MUKHANOV–SASAKI POWER SPECTRUM')" title="Enlarge Graph">⤢</button>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotMSPS" style="height:300px"></div></div>
+        <!-- MS equation info bar -->
+        <div class="planck-legend" style="flex-direction:column;align-items:flex-start;gap:6px;padding:10px 16px">
+          <div style="font-size:0.7rem;color:var(--cyan);font-family:var(--mono)">
+            Mukhanov–Sasaki equation: &nbsp; u_k″ + (k² − z″/z) u_k = 0
+          </div>
+          <div style="font-size:0.68rem;color:var(--text-dim);font-family:var(--mono)">
+            z = aφ̇/H &nbsp;|&nbsp; Bunch-Davies IC: u_k = e^{-ikτ}/√(2k) &nbsp;|&nbsp;
+            𝒫ℛ(k) = k³|u_k|²/(2π²z²) &nbsp;|&nbsp; τ = conformal time
+          </div>
+        </div>
+      </div>
+
+      <!-- MS relative error plot -->
+      <div class="plot-card" id="msErrorCard" style="display:none">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">RELATIVE ERROR: MS vs SR</div>
+            <div class="plot-desc">|𝒫ℛ(MS) − 𝒫ℛ(SR)| / 𝒫ℛ(SR) in percent</div>
+          </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="expandPlot('plotMSError', 'RELATIVE ERROR')" title="Enlarge">⤢</button>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotMSError" style="height:250px"></div></div>
+      </div>
+
+      <!-- MS mode evolution plot -->
+      <div class="plot-card" id="msModeCard" style="display:none">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">MODE EVOLUTION |u_k(N)|</div>
+            <div class="plot-desc">Oscillation → freeze-out for pivot k★ and k=10k★</div>
+          </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="expandPlot('plotMSMode', 'MODE EVOLUTION')" title="Enlarge">⤢</button>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotMSMode" style="height:250px"></div></div>
+      </div>
+
+      <!-- Running spectral index n_s(k) -->
+      <div class="plot-card full-width" id="msNsRunCard" style="display:none">
+        <div class="plot-header">
+          <div>
+            <div class="plot-title">RUNNING SPECTRAL INDEX nₛ(k) = 1 + d ln 𝒫ℛ / d ln k</div>
+            <div class="plot-desc">Local tilt of the MS power spectrum — reveals scale-dependence beyond a power law</div>
+          </div>
+          <div class="plot-controls">
+            <button class="btn-icon" onclick="toggleLinLog('plotMSNsRun')" title="Toggle axis">⬍</button>
+            <button class="btn-icon" onclick="expandPlot('plotMSNsRun', 'RUNNING SPECTRAL INDEX')" title="Enlarge">⤢</button>
+          </div>
+        </div>
+        <div class="plot-body"><div id="plotMSNsRun" style="height:240px"></div></div>
+        <div class="planck-legend" style="padding:8px 16px">
+          <span><div class="dot" style="background:var(--cyan)"></div>nₛ(k) from MS (numerical derivative d ln 𝒫ℛ/d ln k)</span>
+          <span><div class="dot" style="background:var(--amber);border-radius:0"></div>Constant SR value nₛ = 1 − 6ε★ + 2η★</span>
+          <span><div class="dot" style="background:rgba(48,208,128,0.4);border:1px solid var(--green)"></div>Planck 2018: 0.960–0.975</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- INFO SECTION -->
+    <div class="info-panel">
+      <h2>▸ INFLATION — THEORY PRIMER</h2>
+      <div class="info-cols">
+        <div class="info-block">
+          <h3>Cosmic Inflation</h3>
+          <p>Inflation is a period of accelerated expansion in the very early universe (t~10⁻³⁶ s), driven by the potential energy V(φ) of a scalar field φ (the <em>inflaton</em>). It solves the horizon, flatness, and monopole problems and generates the primordial density perturbations observed in the CMB.</p>
+        </div>
+        <div class="info-block">
+          <h3>Slow-Roll Parameters</h3>
+          <p><code>ε(φ) = ½(V′/V)²</code> — measures the slope of V. Inflation occurs while <code>ε &lt; 1</code> and ends when <code>ε = 1</code>.</p>
+          <p style="margin-top:6px"><code>η(φ) = V″/V</code> — measures the curvature of V. The slow-roll approximation requires <code>ε, |η| ≪ 1</code>.</p>
+        </div>
+        <div class="info-block">
+          <h3>CMB Observables</h3>
+          <p><code>nₛ = 1 − 6ε★ + 2η★</code> is the scalar spectral index (tilt of the power spectrum). Planck 2018: <code>nₛ = 0.965 ± 0.004</code>.</p>
+          <p style="margin-top:6px"><code>r = 16ε★</code> is the tensor-to-scalar ratio (gravitational waves). Current bound: <code>r &lt; 0.064</code> (Planck+BICEP/Keck).</p>
+        </div>
+        <div class="info-block">
+          <h3>E-folds &amp; Pivot Scale</h3>
+          <p>The number of e-folds is <code>N(φ) = ∫ V/V′ dφ</code> (in reduced Planck units). CMB observables are evaluated at the <em>pivot field value</em> φ★ corresponding to N★ ≈ 50–60 e-folds before inflation ends, depending on the reheating history.</p>
+        </div>
+        <div class="info-block">
+          <h3>Mukhanov–Sasaki Equation</h3>
+          <p>The exact quantum mode equation for scalar perturbations is <code>u_k″ + (k² − z″/z) u_k = 0</code>, where <code>z = aφ̇/H</code> is the pump field and primes denote conformal-time derivatives.</p>
+          <p style="margin-top:6px">Starting in the Bunch-Davies vacuum <code>u_k = e⁻ⁱᵏᵗ/√(2k)</code> deep inside the horizon, each mode oscillates then <em>freezes out</em> after horizon crossing (<code>k = aH</code>), seeding the classical perturbation <code>ℛ_k = u_k/z</code>.</p>
+        </div>
+        <div class="info-block">
+          <h3>MS vs Slow-Roll Accuracy</h3>
+          <p>The slow-roll result <code>𝒫ℛ = H²/(8π²ε)</code> evaluated at horizon exit is accurate to ~1% for standard single-field models with <code>ε, |η| ≪ 1</code>. Deviations appear near features in V(φ) (e.g. bumps, steps) or when slow-roll is violated — exactly the physics the <em>Relative Error</em> and <em>Running nₛ(k)</em> plots diagnose. The tensor spectrum <code>𝒫T = 8k³/(2π²) × |v_k|²/a²</code> is solved analogously, with <code>a″/a = a²H²(2−ε)</code> replacing <code>z″/z</code>.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT — PHYSICS ENGINE + UI LOGIC + PLOTTING
+     ============================================================ -->
+<script>
+"use strict";
+
+// ── CONSTANTS ────────────────────────────────────────────────
+const Mpl   = 1.0;
+const As    = 2.1e-9;         // CMB amplitude
+const PI    = Math.PI;
+
+// Planck 2018 contour data (approximate ellipses)
+const PLANCK_NS_CENTER = 0.9649;
+const PLANCK_R_CENTER  = 0.0;
+const PLANCK_1S_NS     = 0.0042;  // 1-sigma half-width in ns
+const PLANCK_1S_R      = 0.022;   // 1-sigma half-height in r
+const PLANCK_2S_NS     = 0.0084;
+const PLANCK_2S_R      = 0.055;
+const PLANCK_R_MAX     = 0.064;   // BICEP/Keck upper limit
+
+// ── PRESET DEFINITIONS ────────────────────────────────────────
+const PRESETS = {
+  quadratic: {
+    expr: "0.5 * m**2 * phi**2",
+    latex: "V(φ) = ½ m² φ²",
+    params: { m: { min:1e-7, max:1e-4, val:6e-6, log:true, label:"m" } },
+    phiMin: 0.01, phiMax: 20,
+  },
+  quartic: {
+    expr: "lam * phi**4",
+    latex: "V(φ) = λ φ⁴",
+    params: { lam: { min:1e-15, max:1e-11, val:1e-13, log:true, label:"λ" } },
+    phiMin: 0.01, phiMax: 25,
+  },
+  starobinsky: {
+    expr: "V0 * (1 - exp(-alpha * phi))**2",
+    latex: "V(φ) = V₀ (1 − e^{−αφ})²",
+    params: {
+      V0:    { min:1e-12, max:1e-8,  val:1.5e-9, log:true,   label:"V₀" },
+      alpha: { min:0.05,  max:2.0,   val:0.816,  log:false,  label:"α" },
+    },
+    phiMin: 0.01, phiMax: 12,
+  },
+  natural: {
+    expr: "V0 * (1 - cos(phi / f))",
+    latex: "V(φ) = V₀ (1 − cos(φ/f))",
+    params: {
+      V0: { min:1e-12, max:1e-8, val:1e-10, log:true,  label:"V₀" },
+      f:  { min:0.5,   max:15,   val:5.0,   log:false, label:"f" },
+    },
+    phiMin: 0.1, phiMax: 20,
+  },
+  hilltop: {
+    expr: "V0 * (1 - (phi/mu)**4)",
+    latex: "V(φ) = V₀ (1 − (φ/μ)⁴)",
+    params: {
+      V0: { min:1e-12, max:1e-8, val:1e-10, log:true,  label:"V₀" },
+      mu: { min:1,     max:30,   val:12.0,  log:false, label:"μ" },
+    },
+    phiMin: 0.01, phiMax: 12,
+  },
+  smallfield: {
+    expr: "V0 * (phi/mu)**p * (1 - phi/mu)",
+    latex: "V(φ) = V₀ (φ/μ)^p (1−φ/μ)",
+    params: {
+      V0: { min:1e-12, max:1e-8, val:1e-10, log:true,  label:"V₀" },
+      mu: { min:1,     max:20,   val:8.0,   log:false, label:"μ" },
+      p:  { min:1,     max:6,    val:2.0,   log:false, label:"p", step:0.5 },
+    },
+    phiMin: 0.01, phiMax: 8,
+  },
+  doublewell: {
+    expr: "lam * (phi**2 - v**2)**2",
+    latex: "V(φ) = λ (φ² − v²)²",
+    params: {
+      lam: { min:1e-15, max:1e-10, val:1e-12, log:true,  label:"λ" },
+      v:   { min:0.5,   max:20,    val:6.0,   log:false, label:"v" },
+    },
+    phiMin: 0.01, phiMax: 20,
+  },
+  axionmono: {
+    expr: "V0 * phi**p",
+    latex: "V(φ) = V₀ φ^p",
+    params: {
+      V0: { min:1e-14, max:1e-9, val:1e-11, log:true,  label:"V₀" },
+      p:  { min:0.5,   max:4,    val:2.0,   log:false, label:"p", step:0.25 },
+    },
+    phiMin: 0.01, phiMax: 25,
+  },
+  gaussian_bump: {
+    expr: "V0 * (1 - exp(-alpha*phi))**2 + A * exp(-1 * (phi - phi0)**2 / (2*sigma**2))",
+    latex: "V(φ) = V₀(1−e^{−αφ})² + A·e^{−(φ−φ₀)²/2σ²}",
+    params: {
+      V0:    { min:1e-12, max:1e-8,  val:1.5e-9,  log:true,  label:"V₀" },
+      alpha: { min:0.05,  max:2,     val:0.816,   log:false, label:"α" },
+      A:     { min:1e-13, max:1e-8,  val:2e-10,   log:true,  label:"A (bump)" },
+      phi0:  { min:1,     max:10,    val:4.0,     log:false, label:"φ₀" },
+      sigma: { min:0.05,  max:2,     val:0.3,     log:false, label:"σ" },
+    },
+    phiMin: 0.01, phiMax: 12,
+  },
+  plateau: {
+    expr: "V0 * phi**n / (1 + phi**n)",
+    latex: "V(φ) = V₀ φⁿ / (1+φⁿ)",
+    params: {
+      V0: { min:1e-12, max:1e-8, val:1e-10, log:true,  label:"V₀" },
+      n:  { min:0.5,   max:6,    val:2.0,   log:false, label:"n", step:0.5 },
+    },
+    phiMin: 0.01, phiMax: 25,
+  },
+  higgs: {
+    expr: "V0 * (1 - (1 + xi * phi**2)**(-1))**2",
+    latex: "V(φ) = V₀ (1 − (1+ξφ²)⁻¹)²",
+    params: {
+      V0: { min:1e-12, max:1e-8, val:1e-9,  log:true,  label:"V₀" },
+      xi: { min:0.1,   max:200,  val:10.0,  log:false, label:"ξ" },
+    },
+    phiMin: 0.01, phiMax: 15,
+  },
+};
+
+// ── STATE ─────────────────────────────────────────────────────
+let state = {
+  preset: "quadratic",
+  customExpr: "",
+  params: {},
+  phiMin: 0.01,
+  phiMax: 20,
+  Nstar: 60,
+  showBothN: true,
+  logV: true,
+};
+
+let computedData = null;
+let updateTimer  = null;
+
+// ── SAFE MATH EVALUATOR ───────────────────────────────────────
+/**
+ * Parse a user expression in terms of 'phi' and named parameters.
+ * Returns a compiled JS function f(phi, params) → number.
+ * Whitelisted math operations only.
+ */
+function compileExpr(exprStr, paramNames) {
+  // Replace ^ with **
+  let s = exprStr.replace(/\^/g, "**");
+
+  // Substitute math functions → Math.*
+  const mathFuncs = ["sqrt","exp","log","sin","cos","tan","sinh","cosh","tanh",
+                     "asin","acos","atan","abs","sign"];
+  mathFuncs.forEach(f => {
+    s = s.replace(new RegExp(`\\b${f}\\b`, "g"), `Math.${f}`);
+  });
+  s = s.replace(/\bpi\b/gi, "Math.PI");
+  s = s.replace(/\bln\b/g, "Math.log");
+  s = s.replace(/\bMath\.Math\./g, "Math."); // prevent double Math.Math.
+
+  // Whitelist check — only allow safe characters
+  const safe = /^[0-9phi\s\+\-\*\/\(\)\.\,\_\%Math\.\w]+$/;
+  if (!safe.test(s.replace(/Math\.\w+/g, ""))) {
+    throw new Error("Unsafe characters in expression");
+  }
+
+  // Build function body
+  const paramDecls = paramNames.map(p => `const ${p} = _p["${p}"];`).join(" ");
+  const body = `"use strict"; ${paramDecls} return (${s});`;
+
+  try {
+    // eslint-disable-next-line no-new-func
+    const fn = new Function("phi", "_p", body);
+    // Test call
+    const testParams = {};
+    paramNames.forEach(p => testParams[p] = 1.0);
+    const testVal = fn(1.0, testParams);
+    if (typeof testVal !== "number") throw new Error("Non-numeric result");
+    return fn;
+  } catch(e) {
+    throw new Error("Expression evaluation error: " + e.message);
+  }
+}
+
+/**
+ * Extract free parameter names from an expression
+ * (any identifier that is not phi, Math, or a builtin)
+ */
+function extractParams(exprStr) {
+  const reserved = new Set(["phi","pi","Math","sqrt","exp","log","ln","sin","cos",
+    "tan","sinh","cosh","tanh","asin","acos","atan","abs","sign","e","E","Infinity","NaN"]);
+  const tokens = exprStr.match(/\b[a-zA-Z_][a-zA-Z0-9_]*\b/g) || [];
+  const seen = new Set();
+  const result = [];
+  tokens.forEach(t => {
+    if (!reserved.has(t) && !seen.has(t)) { seen.add(t); result.push(t); }
+  });
+  return result;
+}
+
+// ── UI AND MODAL LOGIC ────────────────────────────────────────
+function changeTheme() {
+  const t = document.getElementById("themeSelect").value;
+  document.body.className = t === "dark" ? "" : "theme-" + t;
+  // Note: Plotly doesn't automatically restyle on CSS variable change 
+  // without a full re-render, but for our lightweight approach, the main UI updates.
+  // UX Suggestion: For a fully responsive theme, we could add a loop calling Plotly.relayout 
+  // on all plots to change plot_bgcolor and paper_bgcolor, but it's optional here.
+}
+
+function syncManual(id) {
+  const val = document.getElementById(id).value;
+  document.getElementById(id+"Val").value = val;
+}
+
+function syncSlider(id) {
+  const val = document.getElementById(id+"Val").value;
+  document.getElementById(id).value = val;
+}
+
+function toggleLinLog(plotId) {
+  const plot = document.getElementById(plotId);
+  if (!plot || !plot.layout || !plot.layout.yaxis) return;
+  const currentType = plot.layout.yaxis.type;
+  const newType = currentType === 'log' ? 'linear' : 'log';
+  Plotly.relayout(plotId, { 'yaxis.type': newType });
+}
+
+let activeModalPlot = null;
+function expandPlot(plotId, title) {
+  const modal = document.getElementById("plotModal");
+  const modalBody = document.getElementById("plotModalBody");
+  modalBody.innerHTML = ""; // clear
+  
+  // Clone element to move Plotly instance cleanly or just recreate
+  const container = document.createElement("div");
+  container.style.width = "100%";
+  container.style.height = "100%";
+  modalBody.appendChild(container);
+  
+  // To avoid destroying the original, we recreate the plot in the modal
+  const origPlot = document.getElementById(plotId);
+  if (origPlot && origPlot.data && origPlot.layout) {
+    const layout = JSON.parse(JSON.stringify(origPlot.layout));
+    layout.title = { text: title || "Enlarged Plot", font: { color: "#7a9aaa", size: 16 } };
+    layout.margin = { l: 60, r: 40, t: 60, b: 60 };
+    Plotly.newPlot(container, origPlot.data, layout, PLOTLY_CONFIG);
+  }
+  
+  modal.classList.add("visible");
+  activeModalPlot = plotId;
+}
+
+function closePlotModal() {
+  document.getElementById("plotModal").classList.remove("visible");
+  document.getElementById("plotModalBody").innerHTML = "";
+  activeModalPlot = null;
+}
+
+// ── DOWNLOAD LOGIC ────────────────────────────────────────────
+function toggleDownloadMenu() {
+  const menu = document.getElementById("downloadMenu");
+  menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
+// UX Suggestion: Close menu when clicking outside
+document.addEventListener("click", (e) => {
+  const container = document.getElementById("downloadDropdownContainer");
+  if (container && !container.contains(e.target)) {
+    document.getElementById("downloadMenu").style.display = "none";
+  }
+});
+
+async function downloadAllGraphs(format) {
+  document.getElementById("downloadMenu").style.display = "none";
+  let plots = ["plotV", "plotSR", "plotN", "plotPhase", "plotNsR", "plotPS"];
+  
+  if (format === 'png' || format === 'jpg') {
+    for (let id of plots) {
+      const gd = document.getElementById(id);
+      if (gd && gd.data) {
+        await Plotly.downloadImage(gd, { format: format === 'jpg' ? 'jpeg' : 'png', width: 1200, height: 800, filename: id });
+      }
+    }
+  } else if (format === 'pdf') {
+    // Requires html2pdf library
+    if (typeof html2pdf === "undefined") {
+      alert("PDF generation library not loaded. Ensure internet connection for CDN.");
+      return;
+    }
+    // We create a temporary hidden container with all plots cloned
+    const tempContainer = document.createElement("div");
+    tempContainer.style.width = "800px";
+    tempContainer.style.background = "#080b0e"; // force dark bg for pdf
+    tempContainer.style.padding = "20px";
+    // Header
+    const title = document.createElement("h1");
+    title.style.color = "#e8a020";
+    title.style.fontFamily = "sans-serif";
+    title.innerText = "Inflation Explorer Report: " + state.preset;
+    tempContainer.appendChild(title);
+    
+    // Convert and append each plot to images to put in PDF
+    for (let id of plots) {
+      const gd = document.getElementById(id);
+      if (gd && gd.data) {
+        try {
+          const imgUrl = await Plotly.toImage(gd, { format: 'png', width: 800, height: 500 });
+          const img = document.createElement("img");
+          img.src = imgUrl;
+          img.style.width = "100%";
+          img.style.marginBottom = "20px";
+          tempContainer.appendChild(img);
+        } catch (e) { console.warn("Failed to capture plot", id, e); }
+      }
+    }
+    document.body.appendChild(tempContainer);
+    // Print PDF
+    const opt = {
+      margin: 10,
+      filename: `InflationLab_Report_${state.preset}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(tempContainer).save().then(() => {
+      document.body.removeChild(tempContainer);
+    });
+  }
+}
+
+// ── NUMERICAL DIFFERENTIATION ────────────────────────────────
+/**
+ * 5-point stencil first derivative
+ */
+function deriv1(f, x, h=1e-5) {
+  return (-f(x+2*h) + 8*f(x+h) - 8*f(x-h) + f(x-2*h)) / (12*h);
+}
+
+/**
+ * 5-point stencil second derivative
+ */
+function deriv2(f, x, h=1e-5) {
+  return (-f(x+2*h) + 16*f(x+h) - 30*f(x) + 16*f(x-h) - f(x-2*h)) / (12*h*h);
+}
+
+// ── NUMERICAL INTEGRATION (Adaptive Simpson) ─────────────────
+function adaptiveSimpson(f, a, b, tol=1e-8, maxDepth=50) {
+  function simpsonStep(f, a, b, fa, fm, fb, whole, depth) {
+    const m1 = (a + (a+b)/2) / 2;
+    const m2 = ((a+b)/2 + b) / 2;
+    const fm1 = f(m1), fm2 = f(m2);
+    const left  = (b-a)/12 * (fa + 4*fm1 + fm);
+    const right = (b-a)/12 * (fm + 4*fm2 + fb);
+    const delta = left + right - whole;
+    if (depth >= maxDepth || Math.abs(delta) <= 15*tol) {
+      return left + right + delta/15;
+    }
+    const mid = (a+b)/2;
+    const fmid = f(mid);
+    return simpsonStep(f, a, mid, fa, fm1, fmid, left, depth+1, tol/2)
+         + simpsonStep(f, mid, b, fmid, fm2, fb, right, depth+1, tol/2);
+  }
+  const fa = f(a), fm = f((a+b)/2), fb = f(b);
+  const whole = (b-a)/6 * (fa + 4*fm + fb);
+  try {
+    return simpsonStep(f, a, b, fa, fm, fb, whole, 0);
+  } catch(e) {
+    return whole; // fallback
+  }
+}
+
+// ── TRAPEZOID CUMULATIVE INTEGRAL ─────────────────────────────
+function cumtrapz(y, x) {
+  const n = y.length;
+  const result = new Float64Array(n);
+  result[0] = 0;
+  for (let i = 1; i < n; i++) {
+    result[i] = result[i-1] + 0.5*(y[i-1]+y[i])*(x[i]-x[i-1]);
+  }
+  return result;
+}
+
+// ── CORE PHYSICS ENGINE ───────────────────────────────────────
+/**
+ * Full slow-roll computation for a given compiled potential function.
+ *
+ * Steps:
+ * 1. Build phi array and evaluate V, V', V''
+ * 2. Compute slow-roll params ε(φ), η(φ)
+ * 3. Detect end of inflation (ε = 1)
+ * 4. Integrate N(φ) = ∫ V/V' dφ from phi_end
+ * 5. Find pivot φ★ at N★ e-folds
+ * 6. Compute nₛ, r, power spectra, CMB norm
+ */
+function computeInflation(Vfn, phiMin, phiMax, Nstar) {
+  const N_POINTS = 1500;
+  const phi = new Float64Array(N_POINTS);
+  const V   = new Float64Array(N_POINTS);
+  const dV  = new Float64Array(N_POINTS);
+  const d2V = new Float64Array(N_POINTS);
+  const eps = new Float64Array(N_POINTS);
+  const eta = new Float64Array(N_POINTS);
+
+  const dphi = (phiMax - phiMin) / (N_POINTS - 1);
+  const h_step = Math.min(dphi * 0.5, 1e-5);
+
+  // Step 1: Evaluate V, V', V''
+  for (let i = 0; i < N_POINTS; i++) {
+    phi[i] = phiMin + i * dphi;
+    const p = phi[i];
+    try {
+      const Vval = Vfn(p);
+      V[i]   = (isFinite(Vval) && Vval > 0) ? Vval : NaN;
+      dV[i]  = deriv1(Vfn, p, h_step);
+      d2V[i] = deriv2(Vfn, p, h_step);
+    } catch(e) {
+      V[i] = dV[i] = d2V[i] = NaN;
+    }
+  }
+
+  // Step 2: Slow-roll parameters
+  for (let i = 0; i < N_POINTS; i++) {
+    if (!isFinite(V[i]) || V[i] <= 0) { eps[i] = NaN; eta[i] = NaN; continue; }
+    const ratio = dV[i] / V[i];
+    eps[i] = 0.5 * ratio * ratio;
+    eta[i] = d2V[i] / V[i];
+  }
+
+  // Step 3: Detect end of inflation (ε = 1)
+  // For large-field models: field rolls large→small, eps large at small phi → find last eps>=1
+  // For small-field: field rolls small→large (or plateau shape) → find first eps>=1 from right
+  // Strategy: use the sign of dV to determine roll direction
+  let idx_end = -1;
+  // Find the first crossing from inflation (ε<1) to non-inflation (ε≥1) when scanning
+  // from inside out. We look for crossings and pick the most physical one.
+
+  // Count valid inflationary region (ε < 1) from each side
+  let validLeft = 0, validRight = 0;
+  for (let i = 0; i < N_POINTS; i++) {
+    if (isFinite(eps[i]) && eps[i] < 1) validLeft++;
+  }
+
+  // Find all ε=1 crossings
+  const crossings = [];
+  for (let i = 1; i < N_POINTS; i++) {
+    if (isFinite(eps[i-1]) && isFinite(eps[i])) {
+      if ((eps[i-1]-1)*(eps[i]-1) <= 0) {
+        crossings.push(i);
+      }
+    }
+  }
+
+  if (crossings.length > 0) {
+    // Determine roll direction from sign of dV near center
+    const midIdx = Math.floor(N_POINTS/2);
+    const dVmid = dV[midIdx];
+    if (dVmid > 0) {
+      // V increasing → field rolls toward smaller phi (large-field)
+      // eps is large at small phi, inflation at large phi → end at LAST crossing from right
+      idx_end = crossings[crossings.length - 1];
+    } else {
+      // V decreasing → field rolls toward larger phi → end at FIRST crossing from right
+      idx_end = crossings[0];
+    }
+  } else {
+    // eps never reaches 1 — use domain boundary with largest eps
+    let maxEps = 0;
+    for (let i = 0; i < N_POINTS; i++) {
+      if (isFinite(eps[i]) && eps[i] > maxEps) { maxEps = eps[i]; idx_end = i; }
+    }
+  }
+  if (idx_end < 0 || idx_end >= N_POINTS) idx_end = 0;
+
+  const phi_end = phi[idx_end];
+  const V_end   = V[idx_end];
+
+  // Step 4: E-folds N(φ) = ∫ (V/V') dφ  (M_pl = 1)
+  // Integrate from phi_end outward; sign chosen so N > 0 during inflation.
+  // We compute it as a cumulative integral and then shift.
+  const integrand = new Float64Array(N_POINTS);
+  for (let i = 0; i < N_POINTS; i++) {
+    if (!isFinite(V[i]) || !isFinite(dV[i]) || Math.abs(dV[i]) < 1e-30) {
+      integrand[i] = 0;
+    } else {
+      integrand[i] = V[i] / dV[i];
+    }
+  }
+
+  const N_cum = cumtrapz(integrand, phi);
+  // Shift so N[idx_end] = 0
+  const N_offset = N_cum[idx_end];
+  const N_arr = new Float64Array(N_POINTS);
+  for (let i = 0; i < N_POINTS; i++) N_arr[i] = N_cum[i] - N_offset;
+
+  // Make N mostly positive by flipping if needed
+  let posCount = 0, negCount = 0;
+  for (let i = 0; i < N_POINTS; i++) {
+    if (isFinite(N_arr[i])) { if (N_arr[i] > 0) posCount++; else negCount++; }
+  }
+  const signFlip = (negCount > posCount) ? -1 : 1;
+  for (let i = 0; i < N_POINTS; i++) N_arr[i] *= signFlip;
+
+  // Step 5: Find pivot field values for various N★
+  const pivots = {};
+  for (const Ns of [50, 55, 60]) {
+    let idx_star = -1;
+    // Find smallest phi with N >= Ns (or search other direction)
+    for (let i = 0; i < N_POINTS; i++) {
+      if (isFinite(N_arr[i]) && N_arr[i] >= Ns) {
+        idx_star = i;
+        break;
+      }
+    }
+    if (idx_star < 0) { pivots[Ns] = null; continue; }
+
+    const phi_star = phi[idx_star];
+    const eps_star = eps[idx_star];
+    const eta_star = eta[idx_star];
+
+    if (!isFinite(eps_star) || eps_star <= 0 || !isFinite(eta_star)) {
+      pivots[Ns] = null; continue;
+    }
+
+    const ns  = 1 - 6*eps_star + 2*eta_star;
+    const r   = 16*eps_star;
+
+    // CMB normalization factor
+    const PR_unnorm = V[idx_star] / (24*PI*PI*eps_star);
+    const norm = (isFinite(PR_unnorm) && PR_unnorm > 0) ? As / PR_unnorm : 1;
+
+    // Build normalized power spectra over N domain
+    const PR_arr = new Float64Array(N_POINTS);
+    const PT_arr = new Float64Array(N_POINTS);
+    for (let i = 0; i < N_POINTS; i++) {
+      if (isFinite(eps[i]) && eps[i] > 0 && isFinite(V[i]) && V[i] > 0) {
+        PR_arr[i] = norm * V[i] / (24*PI*PI*eps[i]);
+        PT_arr[i] = r * PR_arr[i];
+      } else {
+        PR_arr[i] = NaN;
+        PT_arr[i] = NaN;
+      }
+    }
+
+    pivots[Ns] = { idx_star, phi_star, eps_star, eta_star, ns, r, PR_arr, PT_arr, V_norm: norm };
+  }
+
+  // Normalized V array (use N=60 norm if available)
+  const normFactor = (pivots[60]?.V_norm) || (pivots[55]?.V_norm) || (pivots[50]?.V_norm) || 1;
+  const V_plot = new Float64Array(N_POINTS);
+  for (let i = 0; i < N_POINTS; i++) V_plot[i] = V[i] * normFactor;
+
+  // dφ/dN ≈ -V'/V (slow-roll)
+  const dphidN = new Float64Array(N_POINTS);
+  for (let i = 0; i < N_POINTS; i++) {
+    dphidN[i] = (isFinite(V[i]) && V[i] > 0 && isFinite(dV[i])) ? -dV[i]/V[i] : NaN;
+  }
+
+  return { phi, V, V_plot, dV, d2V, eps, eta, N_arr, phi_end, idx_end, pivots, dphidN };
+}
+
+// ── UI STATE MANAGEMENT ───────────────────────────────────────
+let currentVfn = null;  // compiled potential function
+
+function getPreset() {
+  return PRESETS[state.preset] || null;
+}
+
+function getExprAndParams() {
+  const preset = getPreset();
+  if (state.preset === "custom" && state.customExpr) {
+    const paramNames = extractParams(state.customExpr);
+    const paramVals  = {};
+    paramNames.forEach(p => { paramVals[p] = state.params[p] ?? 1.0; });
+    return { expr: state.customExpr, paramNames, paramVals };
+  } else if (preset) {
+    const paramNames = Object.keys(preset.params);
+    const paramVals  = {};
+    paramNames.forEach(p => {
+      paramVals[p] = state.params[p] ?? preset.params[p].val;
+    });
+    return { expr: preset.expr, paramNames, paramVals };
+  }
+  return null;
+}
+
+function buildVfn() {
+  const ep = getExprAndParams();
+  if (!ep) return null;
+  try {
+    const fn = compileExpr(ep.expr, ep.paramNames);
+    return (phi) => fn(phi, ep.paramVals);
+  } catch(e) {
+    showError(e.message);
+    return null;
+  }
+}
+
+// ── PARAMETER SLIDERS ─────────────────────────────────────────
+function buildParamPanel() {
+  const panel = document.getElementById("paramPanel");
+  panel.innerHTML = "";
+
+  const preset = getPreset();
+  const paramDefs = (state.preset === "custom" && state.customExpr)
+    ? buildCustomParamDefs()
+    : (preset ? preset.params : {});
+
+  if (Object.keys(paramDefs).length === 0) {
+    panel.innerHTML = '<div style="color:var(--text-dim);font-size:0.75rem">No free parameters detected.</div>';
+    return;
+  }
+
+  for (const [name, def] of Object.entries(paramDefs)) {
+    const curVal = state.params[name] ?? def.val ?? 1.0;
+    const isLog  = def.log;
+
+    const sliderMin = isLog ? Math.log10(def.min || 1e-15) : (def.min ?? -5);
+    const sliderMax = isLog ? Math.log10(def.max || 1)     : (def.max ?? 5);
+    const sliderVal = isLog ? Math.log10(curVal)           : curVal;
+    const step      = def.step || ((sliderMax - sliderMin) / 200);
+
+    const row = document.createElement("div");
+    row.className = "slider-row";
+    row.innerHTML = `
+      <span class="slider-label">${def.label || name}</span>
+      <input type="range"
+             id="sl_${name}"
+             min="${sliderMin}" max="${sliderMax}" step="${step}"
+             value="${sliderVal}"
+             data-param="${name}" data-log="${isLog}"
+             oninput="onParamSlide(this)"/>
+      <input type="number"
+             class="manual-input"
+             id="sv_${name}"
+             value="${curVal}"
+             step="any"
+             data-param="${name}" data-log="${isLog}"
+             onchange="onParamInput(this)"/>`;
+
+    panel.appendChild(row);
+    // Set initial fill
+    const inp = row.querySelector("input");
+    updateSliderFill(inp);
+  }
+}
+
+function buildCustomParamDefs() {
+  const names = extractParams(state.customExpr);
+  const defs  = {};
+  names.forEach(n => {
+    defs[n] = { min:-5, max:5, val: state.params[n] ?? 1.0, log:false, label:n };
+  });
+  return defs;
+}
+
+function onParamSlide(input) {
+  const name  = input.dataset.param;
+  const isLog = input.dataset.log === "true";
+  const raw   = parseFloat(input.value);
+  const val   = isLog ? Math.pow(10, raw) : raw;
+  state.params[name] = val;
+  // Sync the numeric input field
+  document.getElementById("sv_" + name).value = isLog ? val.toExponential(4) : val.toPrecision(5);
+  updateSliderFill(input);
+  scheduleUpdate();
+}
+
+function onParamInput(input) {
+  const name  = input.dataset.param;
+  const isLog = input.dataset.log === "true";
+  let val = parseFloat(input.value);
+  if (isNaN(val)) return;
+  state.params[name] = val;
+  // Sync the slider
+  const slider = document.getElementById("sl_" + name);
+  const sliderVal = isLog ? (val > 0 ? Math.log10(val) : slider.min) : val;
+  slider.value = sliderVal;
+  updateSliderFill(slider);
+  scheduleUpdate();
+}
+
+function updateSliderFill(input) {
+  const min = parseFloat(input.min);
+  const max = parseFloat(input.max);
+  const val = parseFloat(input.value);
+  const pct = ((val - min) / (max - min) * 100).toFixed(1) + "%";
+  input.style.setProperty("--pct", pct);
+  // Update domain display
+  const id = input.id;
+  if (id === "phiMin") { document.getElementById("phiMinVal").textContent = parseFloat(input.value).toFixed(3); state.phiMin = parseFloat(input.value); }
+  if (id === "phiMax") { document.getElementById("phiMaxVal").textContent = parseFloat(input.value).toFixed(1); state.phiMax = parseFloat(input.value); }
+}
+
+// ── SCHEDULE / DEBOUNCE UPDATE ────────────────────────────────
+function scheduleUpdate() {
+  clearTimeout(updateTimer);
+  updateTimer = setTimeout(runUpdate, 120);
+}
+
+function runUpdate() {
+  setStatus("COMPUTING…");
+  hideError();
+
+  // Pull domain values
+  state.phiMin = parseFloat(document.getElementById("phiMin").value);
+  state.phiMax = parseFloat(document.getElementById("phiMax").value);
+  state.showBothN = document.getElementById("showBothN").checked;
+  state.logV = document.getElementById("logVaxis").checked;
+
+  // Build potential
+  currentVfn = buildVfn();
+  if (!currentVfn) { setStatus("PARSE ERROR"); return; }
+
+  // Validate quickly
+  try {
+    const testV = currentVfn(5.0);
+    if (!isFinite(testV)) throw new Error("V(5)=non-finite");
+  } catch(e) {
+    showError("Potential evaluation failed: " + e.message);
+    setStatus("ERROR");
+    return;
+  }
+
+  // Compute (synchronous but fast enough for 1500 points)
+  try {
+    computedData = computeInflation(currentVfn, state.phiMin, state.phiMax, state.Nstar);
+    updateObservables();
+    updatePlots();
+    setStatus("READY");
+  } catch(e) {
+    showError("Computation error: " + e.message);
+    setStatus("ERROR");
+    console.error(e);
+  }
+}
+
+// ── UPDATE OBSERVABLES PANEL ──────────────────────────────────
+function updateObservables() {
+  const d = computedData;
+  if (!d) return;
+
+  const piv = d.pivots[state.Nstar];
+  if (!piv) {
+    setObs("ns",  "—", false, "no pivot found");
+    setObs("r",   "—", false, "");
+    setObs("eps", "—", false, "");
+    setObs("eta", "—", false, "");
+    document.getElementById("val_phi").textContent = "— / —";
+    return;
+  }
+
+  const ns  = piv.ns;
+  const r   = piv.r;
+  const eps = piv.eps_star;
+  const eta = piv.eta_star;
+  const phi_star = piv.phi_star;
+  const phi_end  = d.phi_end;
+
+  const nsOk = (ns >= 0.960 && ns <= 0.975);
+  const rOk  = (r < 0.064);
+
+  setObs("ns",  ns.toFixed(5),  nsOk, `Planck 2018: 0.960–0.975`);
+  setObs("r",   r.toFixed(5),   rOk,  `Planck+BK: < 0.064`);
+  setObs("eps", eps.toExponential(3), eps < 0.1, `Slow-roll: ε ≪ 1`);
+  setObs("eta", eta.toExponential(3), Math.abs(eta) < 0.1, `Slow-roll: |η| ≪ 1`);
+  document.getElementById("val_phi").textContent =
+    `${phi_star.toFixed(3)}  /  ${phi_end.toFixed(3)}`;
+}
+
+function setObs(key, val, ok, sub) {
+  const card  = document.getElementById("obs_" + key);
+  const valEl = document.getElementById("val_" + key);
+  valEl.textContent = val;
+  card.className = "obs-card " + (ok ? "ok" : (val === "—" ? "" : "bad"));
+}
+
+// ── PLOTLY DARK THEME ─────────────────────────────────────────
+const PLT = {
+  paper_bgcolor: "rgba(0,0,0,0)",
+  plot_bgcolor:  "rgba(12,16,20,1)",
+  font: { family: "'Share Tech Mono', monospace", color: "#7a9aaa", size: 11 },
+  xaxis: {
+    gridcolor: "#15232d", zerolinecolor: "#1c3040", linecolor: "#1c3040",
+    tickfont: { family: "'Share Tech Mono', monospace", color: "#5a7080" },
+  },
+  yaxis: {
+    gridcolor: "#15232d", zerolinecolor: "#1c3040", linecolor: "#1c3040",
+    tickfont: { family: "'Share Tech Mono', monospace", color: "#5a7080" },
+  },
+  legend: { bgcolor: "rgba(12,16,20,0.8)", bordercolor: "#1c3040", borderwidth: 1, font: {color:"#7a9aaa"} },
+  margin: { l: 54, r: 20, t: 20, b: 44 },
+  hovermode: "closest",
+};
+
+const COLORS = {
+  amber:  "#e8a020",
+  cyan:   "#20c0d0",
+  green:  "#30d080",
+  red:    "#e05040",
+  purple: "#9060d0",
+  blue:   "#4090e0",
+  orange: "#f07030",
+  pink:   "#d04080",
+};
+
+const PLOTLY_CONFIG = { responsive: true, displayModeBar: false };
+
+// ── PLOTS INIT ─────────────────────────────────────────────────
+function initPlots() {
+  const emptyLayout = (yTitle, xTitle) => ({
+    ...PLT,
+    xaxis: { ...PLT.xaxis, title: { text: xTitle, font:{color:"#5a7080",size:11} } },
+    yaxis: { ...PLT.yaxis, title: { text: yTitle, font:{color:"#5a7080",size:11} } },
+  });
+
+  Plotly.newPlot("plotV",     [], emptyLayout("V(φ) [CMB norm.]", "φ / Mₚₗ"), PLOTLY_CONFIG);
+  Plotly.newPlot("plotSR",    [], emptyLayout("ε(φ),  η(φ)",      "φ / Mₚₗ"), PLOTLY_CONFIG);
+  Plotly.newPlot("plotN",     [], emptyLayout("N (e-folds)",       "φ / Mₚₗ"), PLOTLY_CONFIG);
+  Plotly.newPlot("plotPhase", [], emptyLayout("dφ/dN",             "φ / Mₚₗ"), PLOTLY_CONFIG);
+  Plotly.newPlot("plotNsR",   [], { ...PLT, xaxis: {...PLT.xaxis, title:{text:"nₛ"}}, yaxis: {...PLT.yaxis, title:{text:"r"}} }, PLOTLY_CONFIG);
+  Plotly.newPlot("plotPS",    [], emptyLayout("Power Spectrum",    "N (e-folds)"), PLOTLY_CONFIG);
+}
+
+// ── UPDATE ALL PLOTS ───────────────────────────────────────────
+function updatePlots() {
+  const d = computedData;
+  if (!d) return;
+
+  const phiArr = Array.from(d.phi);
+  const piv    = d.pivots;
+
+  // Helper: mask invalid
+  function masked(arr) {
+    return Array.from(arr).map(v => (isFinite(v) && v > 0) ? v : null);
+  }
+  function maskedAll(arr) {
+    return Array.from(arr).map(v => isFinite(v) ? v : null);
+  }
+
+  // ── Plot 1: V(φ) ─────────────────────────────────────────
+  {
+    const traces = [{
+      x: phiArr, y: masked(d.V_plot),
+      type: "scatter", mode: "lines",
+      name: "V(φ)",
+      line: { color: COLORS.amber, width: 2.5 },
+      hovertemplate: "φ=%{x:.3f}<br>V=%{y:.3e}<extra></extra>",
+    }];
+
+    const shapes = [], annotations = [];
+    // phi_end
+    shapes.push({ type:"line", x0:d.phi_end, x1:d.phi_end, y0:0, y1:1,
+      yref:"paper", line:{color:COLORS.red, width:1.5, dash:"dash"} });
+    annotations.push({ x:d.phi_end, y:0.95, yref:"paper", text:"ε=1", showarrow:false,
+      font:{color:COLORS.red, size:10}, bgcolor:"rgba(12,16,20,0.7)" });
+
+    const pivCols = {50:COLORS.green, 55:COLORS.red, 60:COLORS.amber};
+    const showBoth = state.showBothN;
+    const toShow = showBoth ? [50,55,60] : [state.Nstar];
+    toShow.forEach(Ns => {
+      if (!piv[Ns]) return;
+      const col = pivCols[Ns];
+      shapes.push({ type:"line", x0:piv[Ns].phi_star, x1:piv[Ns].phi_star,
+        y0:0, y1:1, yref:"paper", line:{color:col, width:1.2, dash:"dot"} });
+      annotations.push({ x:piv[Ns].phi_star, y:0.7 - 0.12*(Ns-50)/10, yref:"paper",
+        text:`N=${Ns}`, showarrow:false, font:{color:col, size:9}, bgcolor:"rgba(12,16,20,0.7)" });
+    });
+
+    const logV = document.getElementById("logVaxis").checked;
+    Plotly.react("plotV", traces, {
+      ...PLT,
+      xaxis: { ...PLT.xaxis, title:{text:"φ / Mₚₗ", font:{color:"#5a7080",size:11}} },
+      yaxis: { ...PLT.yaxis, title:{text:"V(φ) [CMB norm.]", font:{color:"#5a7080",size:11}},
+               type: logV ? "log" : "linear" },
+      shapes, annotations,
+    }, PLOTLY_CONFIG);
+  }
+
+  // ── Plot 2: Slow-roll ε, η ──────────────────────────────
+  {
+    const epsDisp = Array.from(d.eps).map(v => (isFinite(v) && v > 0 && v < 1e4) ? v : null);
+    const etaDisp = Array.from(d.eta).map(v => (isFinite(v) && Math.abs(v) < 1e4) ? v : null);
+
+    const traces = [
+      { x:phiArr, y:epsDisp, type:"scatter", mode:"lines", name:"ε(φ)",
+        line:{color:COLORS.amber, width:2.5},
+        hovertemplate:"φ=%{x:.3f}<br>ε=%{y:.4f}<extra></extra>" },
+      { x:phiArr, y:etaDisp, type:"scatter", mode:"lines", name:"η(φ)",
+        line:{color:COLORS.cyan, width:2, dash:"dot"},
+        hovertemplate:"φ=%{x:.3f}<br>η=%{y:.4f}<extra></extra>", yaxis:"y2" },
+    ];
+
+    const shapes = [
+      { type:"line", x0:phiArr[0], x1:phiArr[phiArr.length-1], y0:1, y1:1,
+        line:{color:COLORS.red, width:1.2, dash:"dash"} },
+      { type:"line", x0:d.phi_end, x1:d.phi_end, y0:0, y1:1, yref:"paper",
+        line:{color:COLORS.red, width:1.5, dash:"dash"} },
+    ];
+
+    Plotly.react("plotSR", traces, {
+      ...PLT,
+      xaxis: { ...PLT.xaxis, title:{text:"φ / Mₚₗ", font:{color:"#5a7080",size:11}} },
+      yaxis: { ...PLT.yaxis, title:{text:"ε(φ)", font:{color:COLORS.amber,size:11}},
+               side:"left", type:"log" },
+      yaxis2: { ...PLT.yaxis, title:{text:"η(φ)", font:{color:COLORS.cyan,size:11}},
+                side:"right", overlaying:"y", showgrid:false },
+      shapes,
+      legend: { ...PLT.legend, x:0.02, y:0.98 },
+      margin: { ...PLT.margin, r:54 },
+    }, PLOTLY_CONFIG);
+  }
+
+  // ── Plot 3: N(φ) ────────────────────────────────────────
+  {
+    const Ndisp = Array.from(d.N_arr).map(v => (isFinite(v) && v >= 0 && v < 300) ? v : null);
+
+    const traces = [{
+      x:phiArr, y:Ndisp, type:"scatter", mode:"lines", name:"N(φ)",
+      line:{color:COLORS.cyan, width:2.5},
+      hovertemplate:"φ=%{x:.3f}<br>N=%{y:.2f}<extra></extra>",
+    }];
+    const shapes = [];
+    const annotations = [];
+
+    [50,55,60].forEach(Ns => {
+      const col = {50:COLORS.green, 55:COLORS.orange, 60:COLORS.amber}[Ns];
+      shapes.push({ type:"line", x0:phiArr[0], x1:phiArr[phiArr.length-1],
+        y0:Ns, y1:Ns, line:{color:col, width:1, dash:"dot"} });
+      if (piv[Ns]) {
+        shapes.push({ type:"line", x0:piv[Ns].phi_star, x1:piv[Ns].phi_star,
+          y0:0, y1:Ns, line:{color:col, width:1, dash:"dot"} });
+        annotations.push({ x:piv[Ns].phi_star, y:Ns, text:`N=${Ns}`, showarrow:false,
+          xanchor:"left", yanchor:"bottom", font:{color:col, size:9} });
+      }
+    });
+    shapes.push({ type:"line", x0:d.phi_end, x1:d.phi_end, y0:0, y1:1, yref:"paper",
+      line:{color:COLORS.red, width:1.5, dash:"dash"} });
+
+    Plotly.react("plotN", traces, {
+      ...PLT,
+      xaxis: { ...PLT.xaxis, title:{text:"φ / Mₚₗ", font:{color:"#5a7080",size:11}} },
+      yaxis: { ...PLT.yaxis, title:{text:"N (e-folds)", font:{color:"#5a7080",size:11}},
+               range:[0, Math.min(150, Math.max(...Ndisp.filter(Boolean))*1.1)] },
+      shapes, annotations,
+    }, PLOTLY_CONFIG);
+  }
+
+  // ── Plot 4: Phase portrait ──────────────────────────────
+  {
+    const dphiDisp = Array.from(d.dphidN).map(v => (isFinite(v) && Math.abs(v)<50) ? v : null);
+    const traces = [{
+      x:phiArr, y:dphiDisp, type:"scatter", mode:"lines", name:"dφ/dN ≈ −V′/V",
+      line:{color:COLORS.purple, width:2.5},
+      hovertemplate:"φ=%{x:.3f}<br>dφ/dN=%{y:.4f}<extra></extra>",
+    }];
+    Plotly.react("plotPhase", traces, {
+      ...PLT,
+      xaxis: { ...PLT.xaxis, title:{text:"φ / Mₚₗ", font:{color:"#5a7080",size:11}} },
+      yaxis: { ...PLT.yaxis, title:{text:"dφ/dN", font:{color:"#5a7080",size:11}} },
+      shapes: [{ type:"line", x0:phiArr[0], x1:phiArr[phiArr.length-1], y0:0, y1:0,
+        line:{color:"#1c3040", width:1} }],
+    }, PLOTLY_CONFIG);
+  }
+
+  // ── Plot 5: nₛ–r plane ──────────────────────────────────
+  {
+    // Build Planck contour ellipses
+    const theta = Array.from({length:200}, (_,i) => i * 2*PI/199);
+    const e1_ns = theta.map(t => PLANCK_NS_CENTER + PLANCK_1S_NS * Math.cos(t));
+    const e1_r  = theta.map(t => Math.max(0, PLANCK_R_CENTER + PLANCK_1S_R * (Math.sin(t)+1)/2));
+    const e2_ns = theta.map(t => PLANCK_NS_CENTER + PLANCK_2S_NS * Math.cos(t));
+    const e2_r  = theta.map(t => Math.max(0, PLANCK_R_CENTER + PLANCK_2S_R * (Math.sin(t)+1)/2));
+
+    // Reference model trajectories
+    const nArr = [50,52,54,56,58,60,62,64,66,68,70];
+    const staro_ns = nArr.map(n => 1 - 2/n);
+    const staro_r  = nArr.map(n => 12/(n*n));
+    const phi2_ns  = nArr.map(n => 1 - 2/n);
+    const phi2_r   = nArr.map(n => 8/n);
+    const phi4_ns  = nArr.map(n => 1 - 3/n);
+    const phi4_r   = nArr.map(n => 16/n);
+
+    const traces = [
+      // Planck contours
+      { x:e2_ns, y:e2_r, type:"scatter", mode:"lines", name:"Planck 2σ",
+        fill:"toself", fillcolor:"rgba(64,160,240,0.08)",
+        line:{color:"rgba(64,160,240,0.4)", width:1.2, dash:"dot"},
+        hoverinfo:"skip" },
+      { x:e1_ns, y:e1_r, type:"scatter", mode:"lines", name:"Planck 1σ",
+        fill:"toself", fillcolor:"rgba(64,160,240,0.22)",
+        line:{color:"rgba(64,160,240,0.6)", width:1.5},
+        hoverinfo:"skip" },
+      // Reference trajectories
+      { x:staro_ns, y:staro_r, type:"scatter", mode:"lines+markers", name:"Starobinsky",
+        line:{color:COLORS.cyan, width:1.5, dash:"dash"},
+        marker:{size:5, color:COLORS.cyan},
+        hovertemplate:"Starobinsky<br>n_s=%{x:.4f}  r=%{y:.4f}<extra></extra>" },
+      { x:phi2_ns, y:phi2_r, type:"scatter", mode:"lines+markers", name:"φ² chaotic",
+        line:{color:COLORS.orange, width:1.5, dash:"dash"},
+        marker:{size:5, color:COLORS.orange},
+        hovertemplate:"φ² Chaotic<br>n_s=%{x:.4f}  r=%{y:.4f}<extra></extra>" },
+      { x:phi4_ns, y:phi4_r, type:"scatter", mode:"lines+markers", name:"φ⁴ chaotic",
+        line:{color:COLORS.purple, width:1.5, dash:"dash"},
+        marker:{size:5, color:COLORS.purple},
+        hovertemplate:"φ⁴ Chaotic<br>n_s=%{x:.4f}  r=%{y:.4f}<extra></extra>" },
+    ];
+
+    // User model points
+    const pivCfg = {
+      50: { col: COLORS.green,  sym: "diamond", },
+      55: { col: COLORS.red,    sym: "cross"    },
+      60: { col: COLORS.amber,  sym: "star"     },
+    };
+    Object.entries(pivCfg).forEach(([Ns, cfg]) => {
+      const p = piv[parseInt(Ns)];
+      if (!p) return;
+      traces.push({
+        x:[p.ns], y:[p.r],
+        type:"scatter", mode:"markers",
+        name: `Your model  N=${Ns}`,
+        marker:{ size:18, color:cfg.col, symbol:cfg.sym,
+                 line:{color:"white", width:1.5},
+                 opacity: parseInt(Ns)===state.Nstar ? 1 : 0.5 },
+        hovertemplate:`N=${Ns}<br>nₛ=%{x:.5f}<br>r=%{y:.5f}<extra></extra>`,
+      });
+    });
+
+    Plotly.react("plotNsR", traces, {
+      ...PLT,
+      xaxis: { ...PLT.xaxis, title:{text:"nₛ", font:{color:"#5a7080",size:11}},
+               range:[0.93, 0.985] },
+      yaxis: { ...PLT.yaxis, title:{text:"r", font:{color:"#5a7080",size:11}},
+               range:[-0.004, 0.22] },
+      margin: { ...PLT.margin, b:50 },
+      shapes: [
+        { type:"line", x0:0.93, x1:0.985, y0:PLANCK_R_MAX, y1:PLANCK_R_MAX,
+          line:{color:COLORS.red, width:1, dash:"dot"} },
+      ],
+      annotations: [
+        { x:0.933, y:PLANCK_R_MAX, xanchor:"left", yanchor:"bottom",
+          text:`r = ${PLANCK_R_MAX} (Planck+BK limit)`,
+          showarrow:false, font:{color:COLORS.red, size:9} },
+      ],
+    }, PLOTLY_CONFIG);
+  }
+
+  // ── Plot 6: Power spectra ───────────────────────────────
+  {
+    const p = piv[state.Nstar];
+    if (p) {
+      // Plot over inflationary domain (N > 0)
+      const Narr = Array.from(d.N_arr);
+      const xs   = [], PRs = [], PTs = [];
+      for (let i = 0; i < Narr.length; i++) {
+        if (Narr[i] >= 0 && Narr[i] <= 120 && isFinite(p.PR_arr[i]) && p.PR_arr[i] > 0 && isFinite(p.PT_arr[i])) {
+          xs.push(Narr[i]);
+          PRs.push(p.PR_arr[i]);
+          PTs.push(p.PT_arr[i]);
+        }
+      }
+      const Nstar_val = d.N_arr[p.idx_star];
+
+      const traces = [
+        { x:xs, y:PRs, type:"scatter", mode:"lines", name:"Scalar 𝒫ℛ",
+          line:{color:COLORS.blue, width:2.5},
+          hovertemplate:"N=%{x:.2f}<br>𝒫ℛ=%{y:.2e}<extra></extra>" },
+        { x:xs, y:PTs, type:"scatter", mode:"lines", name:"Tensor 𝒫T",
+          line:{color:COLORS.red, width:2, dash:"dot"},
+          hovertemplate:"N=%{x:.2f}<br>𝒫T=%{y:.2e}<extra></extra>" },
+      ];
+
+      Plotly.react("plotPS", traces, {
+        ...PLT,
+        xaxis: { ...PLT.xaxis, title:{text:"N (e-folds from end)", font:{color:"#5a7080",size:11}} },
+        yaxis: { ...PLT.yaxis, title:{text:"Power Spectrum", font:{color:"#5a7080",size:11}},
+                 type:"log" },
+        shapes: [
+          { type:"line", x0:Nstar_val, x1:Nstar_val, y0:0, y1:1, yref:"paper",
+            line:{color:COLORS.amber, width:1.5, dash:"dash"} },
+          { type:"line", x0:0, x1:xs[xs.length-1]||80, y0:As, y1:As,
+            line:{color:COLORS.green, width:1, dash:"dot"} },
+        ],
+        annotations: [
+          { x:Nstar_val, y:0.92, yref:"paper", text:`Pivot N=${state.Nstar}`,
+            showarrow:false, font:{color:COLORS.amber, size:10}, xanchor:"left" },
+          { x:(xs[xs.length-1]||80)*0.85, y:As*1.5, text:"Aₛ = 2.1×10⁻⁹",
+            showarrow:false, font:{color:COLORS.green, size:9} },
+        ],
+      }, PLOTLY_CONFIG);
+    }
+  }
+}
+
+// ── ERROR / STATUS ─────────────────────────────────────────────
+function showError(msg) {
+  const el = document.getElementById("parseError");
+  el.textContent = "⚠ " + msg;
+  el.classList.add("visible");
+}
+function hideError() {
+  document.getElementById("parseError").classList.remove("visible");
+}
+function setStatus(msg) {
+  document.getElementById("statusText").textContent = msg;
+}
+
+// ── PRESET CHANGE ─────────────────────────────────────────────
+document.getElementById("presetSelect").addEventListener("change", function() {
+  state.preset = this.value;
+  state.params = {};  // reset params
+
+  const preset = PRESETS[state.preset];
+  if (preset) {
+    document.getElementById("customExpr").value = "";
+    state.customExpr = "";
+    document.getElementById("phiMin").value = preset.phiMin || 0.01;
+    document.getElementById("phiMax").value = preset.phiMax || 25;
+    updateSliderFill(document.getElementById("phiMin"));
+    updateSliderFill(document.getElementById("phiMax"));
+    document.getElementById("latexDisplay").textContent = preset.latex || preset.expr;
+  } else {
+    document.getElementById("latexDisplay").textContent = "Enter expression above…";
+  }
+
+  buildParamPanel();
+  scheduleUpdate();
+});
+
+// ── CUSTOM EXPRESSION ─────────────────────────────────────────
+document.getElementById("customExpr").addEventListener("input", function() {
+  state.customExpr = this.value.trim();
+  state.preset = state.customExpr ? "custom" : document.getElementById("presetSelect").value;
+  if (state.customExpr) {
+    document.getElementById("presetSelect").value = "custom";
+    // Show formatted expression
+    let display = "V(φ) = " + state.customExpr;
+    display = display.replace(/\*\*/g, "^").replace(/\*/g, "·");
+    document.getElementById("latexDisplay").textContent = display;
+  }
+  buildParamPanel();
+  scheduleUpdate();
+});
+
+function clearCustom() {
+  document.getElementById("customExpr").value = "";
+  state.customExpr = "";
+  document.getElementById("latexDisplay").textContent = "Enter expression above…";
+  buildParamPanel();
+  scheduleUpdate();
+}
+
+// ── N★ SELECTOR ───────────────────────────────────────────────
+function setNstar(n) {
+  state.Nstar = n;
+  [50,55,60].forEach(v => {
+    document.getElementById("nBtn"+v).className = "n-btn" + (v===n ? " active" : "");
+  });
+  updateObservables();
+  updatePlots();
+}
+
+// ── RESET ─────────────────────────────────────────────────────
+function resetDefaults() {
+  document.getElementById("presetSelect").value = "quadratic";
+  state.preset = "quadratic";
+  state.customExpr = "";
+  state.params = {};
+  state.Nstar = 60;
+  document.getElementById("customExpr").value = "";
+  document.getElementById("phiMin").value = 0.01;
+  document.getElementById("phiMax").value = 20;
+  updateSliderFill(document.getElementById("phiMin"));
+  updateSliderFill(document.getElementById("phiMax"));
+  const preset = PRESETS["quadratic"];
+  document.getElementById("latexDisplay").textContent = preset.latex;
+  setNstar(60);
+  buildParamPanel();
+  scheduleUpdate();
+}
+
+// ── EXPORT DATA ───────────────────────────────────────────────
+function exportData() {
+  if (!computedData) return;
+  const d = computedData;
+  const p = d.pivots[state.Nstar];
+  const lines = ["# InflationLab Export", `# Model: ${state.preset}`, "# phi,V,eps,eta,N"];
+  for (let i = 0; i < d.phi.length; i++) {
+    lines.push(`${d.phi[i].toFixed(6)},${d.V[i]?.toExponential(6) ?? ""},${d.eps[i]?.toFixed(8) ?? ""},${d.eta[i]?.toFixed(8) ?? ""},${d.N_arr[i]?.toFixed(6) ?? ""}`);
+  }
+  if (p) {
+    lines.push(`# ns=${p.ns.toFixed(6)},r=${p.r.toFixed(6)},eps_star=${p.eps_star.toExponential(4)},eta_star=${p.eta_star.toExponential(4)}`);
+  }
+  const blob = new Blob([lines.join("\n")], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "inflationlab_data.csv";
+  a.click();
+}
+
+// ── INITIALIZE ────────────────────────────────────────────────
+function init() {
+  // Init slider fills
+  updateSliderFill(document.getElementById("phiMin"));
+  updateSliderFill(document.getElementById("phiMax"));
+
+  // Set default preset
+  const preset = PRESETS["quadratic"];
+  document.getElementById("latexDisplay").textContent = preset.latex;
+
+  initPlots();
+  buildParamPanel();
+  scheduleUpdate();
+}
+
+window.addEventListener("load", init);
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MUKHANOV–SASAKI EQUATION SOLVER
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The Mukhanov–Sasaki (MS) equation for scalar perturbations is:
+//
+//   u_k'' + (k² - z''/z) u_k = 0       (primes = d/dτ)
+//
+// where:
+//   u_k  = z · R_k   (Mukhanov variable)
+//   z    = a φ̇ / H   (pump field)
+//   τ    = conformal time
+//   R_k  = scalar curvature perturbation
+//
+// Primordial scalar power spectrum:
+//   P_R(k) = k³/(2π²) × |u_k(τ→0)|² / z²
+//
+// Strategy:
+//   1. Reconstruct the full background trajectory φ(N), a(N), H(N) from
+//      the slow-roll solution computed by computeInflation().
+//   2. Convert conformal time τ from N via dτ/dN = 1/(aH).
+//   3. For each k-mode, integrate the MS equation using a 4th-order
+//      Runge-Kutta scheme in e-folds N, starting deep inside the horizon
+//      (k >> aH) with Bunch-Davies initial conditions.
+//   4. Extract |u_k|² after horizon exit (k << aH) to get P_R(k).
+//
+// Variables used during ODE integration (in terms of N as time):
+//   Let u = Re(u_k),  v = Im(u_k)
+//   du/dN = (du/dτ)(dτ/dN)  etc.
+//
+// We integrate the system as a 4-component real ODE:
+//   y = [Re u_k, Im u_k, Re u_k', Im u_k']   (prime = d/dτ)
+// Converted to N derivatives using dτ/dN = 1/(aH):
+//   dy[0]/dN = y[2] * (1/(aH))
+//   dy[1]/dN = y[3] * (1/(aH))
+//   dy[2]/dN = -(k² - z''/z) y[0] * (1/(aH))
+//   dy[3]/dN = -(k² - z''/z) y[1] * (1/(aH))
+//
+// z''/z in conformal time is computed from background quantities:
+//   z''/z = a²[2H² + 5Hφ̈/φ̇ + φ̈²/φ̇² - φ⃛/φ̇ + H̊φ̇/H]
+// In slow-roll: z''/z ≈ ν²-¼)/τ² ≈ (2+3ε+3/2η)·a²H²  (convenient formula)
+//
+// We compute z''/z directly from the background via:
+//   z''/z = a²H²(2 - ε + 3η - 4ε² + ...)    [exact to 2nd order]
+// For greater accuracy we use the full expression derived from:
+//   z = aφ̇/H,  φ̇ = -H'(N)/H × Mpl  (where H' = dH/dN)
+//
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── MS STATE ─────────────────────────────────────────────────────────────
+let msTimer    = null;
+let msResult   = null;  // { kArr, PR_ms, ns_ms, r_ms, PR_pivot }
+
+// ── TOGGLE MS PANEL ───────────────────────────────────────────────────────
+function onMSToggle() {
+  const enabled = document.getElementById("enableMS").checked;
+  document.getElementById("msPanel").style.display     = enabled ? "" : "none";
+  document.getElementById("msPSCard").style.display    = enabled ? "" : "none";
+  document.getElementById("msErrorCard").style.display  = enabled ? "" : "none";
+  document.getElementById("msModeCard").style.display   = enabled ? "" : "none";
+  document.getElementById("msNsRunCard").style.display  = enabled ? "" : "none";
+  if (enabled) {
+    Plotly.newPlot("plotMSPS", [], {
+      ...PLT,
+      xaxis: { ...PLT.xaxis, title:{text:"k / k★  (pivot-normalised)", font:{color:"#5a7080",size:11}}, type:"log" },
+      yaxis: { ...PLT.yaxis, title:{text:"𝒫(k)", font:{color:"#5a7080",size:11}}, type:"log" },
+    }, PLOTLY_CONFIG);
+    Plotly.newPlot("plotMSError", [], {
+      ...PLT,
+      xaxis: { ...PLT.xaxis, title:{text:"k / k★", font:{color:"#5a7080",size:11}}, type:"log" },
+      yaxis: { ...PLT.yaxis, title:{text:"% relative error", font:{color:"#5a7080",size:11}} },
+    }, PLOTLY_CONFIG);
+    Plotly.newPlot("plotMSMode", [], {
+      ...PLT,
+      xaxis: { ...PLT.xaxis, title:{text:"N (e-folds from end)", font:{color:"#5a7080",size:11}} },
+      yaxis: { ...PLT.yaxis, title:{text:"|u_k(N)|", font:{color:"#5a7080",size:11}}, type:"log" },
+    }, PLOTLY_CONFIG);
+    Plotly.newPlot("plotMSNsRun", [], {
+      ...PLT,
+      xaxis: { ...PLT.xaxis, title:{text:"k / k★", font:{color:"#5a7080",size:11}}, type:"log" },
+      yaxis: { ...PLT.yaxis, title:{text:"nₛ(k)", font:{color:"#5a7080",size:11}} },
+    }, PLOTLY_CONFIG);
+    scheduleMS();
+  } else {
+    msResult = null;
+    updateMSObservables(null);
+  }
+}
+
+function scheduleMS() {
+  clearTimeout(msTimer);
+  msTimer = setTimeout(runMS, 200);
+}
+
+// ── BACKGROUND RECONSTRUCTION ─────────────────────────────────────────────
+/**
+ * Build a densely-sampled background trajectory for use by the MS solver.
+ * Returns arrays indexed by N (e-folds from end of inflation).
+ *
+ * For each grid point we need:
+ *   aH(N), z(N), z''(N)/z(N)  [in conformal time]
+ *
+ * In slow-roll the background equations give:
+ *   H² = V/3         (Friedmann, M_pl=1)
+ *   φ̇  = -V'/V × H  (slow-roll field eqn ≡ -√(2ε)·H)
+ *   a   = a_end · exp(N)   normalized so a=1 at N=0
+ *
+ * Conformal time τ(N) = ∫ dN/(aH), integrated from N_max downward
+ * (τ is negative during inflation, → 0 at end)
+ *
+ * z(N) = a(N) φ̇(N) / H(N) = a(N) × (-√(2ε(N)))   [M_pl=1]
+ *
+ * z''/z in conformal time (exact in slow-roll to all orders):
+ *   z''/z = a²H² × f(ε,η,ξ²)
+ * where the exact formula through second slow-roll order is:
+ *   f = 2 + 2ε - η + (2ε² - 5εη/2 + η²/4 + ξ²/2)
+ *
+ * We compute ξ² = V'''V'/(V²) numerically and use the full expression.
+ */
+function buildBackground(Vfn, d, Nstar) {
+  // Use the computedData arrays for ε(φ), η(φ), N(φ), etc.
+  const phi_arr = d.phi;
+  const eps_arr = d.eps;
+  const eta_arr = d.eta;
+  const N_arr   = d.N_arr;       // N = 0 at inflation end, positive during inflation
+  const V_arr   = d.V;
+  const dV_arr  = d.dV;
+  const d2V_arr = d.d2V;
+  const N_POINTS = phi_arr.length;
+
+  // We want N from 0 up to N_max = max(N_arr), sampled uniformly.
+  // The MS ODE needs a monotone, densely sampled grid in N.
+  // Since the phi grid may not map to uniform N spacing, we re-interpolate.
+
+  // Collect valid (N, eps, eta, V, dV, d2V) tuples, sorted by N ascending
+  const pts = [];
+  for (let i = 0; i < N_POINTS; i++) {
+    const Ni = N_arr[i];
+    if (!isFinite(Ni) || Ni < 0 || Ni > 200) continue;
+    if (!isFinite(eps_arr[i]) || eps_arr[i] <= 0) continue;
+    if (!isFinite(V_arr[i]) || V_arr[i] <= 0)    continue;
+    pts.push({ N: Ni, eps: eps_arr[i], eta: eta_arr[i], V: V_arr[i], phi: phi_arr[i] });
+  }
+  pts.sort((a,b) => a.N - b.N);
+
+  if (pts.length < 10) return null;
+
+  const N_max = pts[pts.length-1].N;
+  if (N_max < 10) return null;
+
+  // Uniform N grid: 0 → N_max with 2000 steps
+  const BG_N = 2000;
+  const dN   = N_max / (BG_N - 1);
+
+  // Linear interpolation helper
+  function interp(pts, Nq, key) {
+    if (Nq <= pts[0].N)               return pts[0][key];
+    if (Nq >= pts[pts.length-1].N)    return pts[pts.length-1][key];
+    let lo = 0, hi = pts.length - 1;
+    while (hi - lo > 1) {
+      const mid = (lo+hi)>>1;
+      if (pts[mid].N <= Nq) lo = mid; else hi = mid;
+    }
+    const t = (Nq - pts[lo].N) / (pts[hi].N - pts[lo].N);
+    return pts[lo][key] * (1-t) + pts[hi][key] * t;
+  }
+
+  // Build background arrays on uniform N grid
+  const bg_N    = new Float64Array(BG_N);
+  const bg_eps  = new Float64Array(BG_N);
+  const bg_eta  = new Float64Array(BG_N);
+  const bg_H    = new Float64Array(BG_N);   // H = √(V/3) / M_pl
+  const bg_aH   = new Float64Array(BG_N);   // a·H, normalized a_end=1
+  const bg_z    = new Float64Array(BG_N);   // z = a φ̇ / H = -a √(2ε)
+  const bg_zzpp = new Float64Array(BG_N);   // z''/z in conformal time / (aH)²
+
+  for (let i = 0; i < BG_N; i++) {
+    const Ni  = i * dN;
+    bg_N[i]   = Ni;
+    const eps = Math.max(1e-10, interp(pts, Ni, 'eps'));
+    const eta = interp(pts, Ni, 'eta');
+    const V   = interp(pts, Ni, 'V');
+    bg_eps[i] = eps;
+    bg_eta[i] = eta;
+
+    // H from Friedmann: H² = V/3
+    bg_H[i]   = Math.sqrt(V / 3.0);
+
+    // a(N) = exp(N) (choosing a_end = 1)
+    const a   = Math.exp(Ni);
+    bg_aH[i]  = a * bg_H[i];
+
+    // z = -a√(2ε)  (sign convention; |z| is what enters P_R)
+    bg_z[i]   = a * Math.sqrt(2.0 * eps);
+
+    // z''/z in conformal time, computed from background slow-roll parameters.
+    // The standard result to second order in slow-roll (Leach et al. 2002,
+    // Phys. Rev. D 65, 023512; eq. A7):
+    //
+    //   z''/z = a²H²[ 2 + 2ε - η + (5ε²/2 - 5εη/2 + η²/4 + ξ²/2) ]
+    //
+    // where ξ² = V'''V'/(V²) (third slow-roll param).  Since we don't track
+    // ξ² here (requires d³V/dφ³), we keep only the terms through first and
+    // leading second order in ε and η that dominate for most models:
+    //
+    //   z''/z / (aH)² ≈ 2 + 2ε - η   [first-order]
+    //
+    // Including the dominant second-order correction (Leach 2002):
+    //   f = 2 + 2ε - η + 5ε²/2 - 5εη/2
+    const f = 2.0 + 2.0*eps - eta + 2.5*eps*eps - 2.5*eps*eta;
+    bg_zzpp[i] = bg_aH[i] * bg_aH[i] * f;
+  }
+
+  // Conformal time τ(N): dτ/dN = 1/(aH),  τ → −1/(aH) at end of inflation.
+  // We integrate backward from N=N_max to N=0, so τ < 0 throughout.
+  // Boundary condition: at the end of inflation (N→0), τ_end ≈ −1/(aH_end).
+  const bg_tau = new Float64Array(BG_N);
+  bg_tau[BG_N-1] = -1.0 / bg_aH[BG_N-1];  // τ at N_max (deep in inflation, large |τ|)
+  for (let i = BG_N-2; i >= 0; i--) {
+    // dτ = -dN/(aH)
+    bg_tau[i] = bg_tau[i+1] - dN * 0.5 * (1.0/bg_aH[i] + 1.0/bg_aH[i+1]);
+  }
+
+  return { bg_N, bg_eps, bg_eta, bg_H, bg_aH, bg_z, bg_zzpp, bg_tau, N_max, dN, BG_N };
+}
+
+// ── BUNCH-DAVIES INITIAL CONDITIONS ───────────────────────────────────────
+/**
+ * At conformal time τ = τ_ic (deep inside horizon, k|τ| >> 1):
+ *   u_k(τ_ic)   = (1/√(2k)) × e^{−ikτ_ic}
+ *   u_k'(τ_ic)  = (−ik/√(2k)) × e^{−ikτ_ic} + (z'/z) × u_k(τ_ic)
+ * We track real and imaginary parts separately.
+ * The z'/z correction is small if k|τ| >> 1, but we include it for accuracy.
+ */
+function bunchDaviesIC(k, tau_ic, zppz_aH2, aH_ic) {
+  // z'/z = (z_dot/z) in conformal time; slow-roll: z'/z ≈ aH(1+ε-η/2)
+  // For BD IC deep inside horizon, this correction is O(1/(k|τ|)) and small
+  const kabs = k;
+  const phase = kabs * tau_ic;  // negative since tau < 0
+  const amp   = 1.0 / Math.sqrt(2.0 * kabs);
+
+  const Re_u  =  amp * Math.cos(phase);
+  const Im_u  =  amp * Math.sin(phase);
+  // u' = (-ik) × u  (leading order Bunch-Davies)
+  const Re_up = kabs * Im_u;   // Re[-ik × (Re+iIm)] = k × Im
+  const Im_up = -kabs * Re_u;  // Im[-ik × (Re+iIm)] = -k × Re
+
+  return [Re_u, Im_u, Re_up, Im_up];
+}
+
+// ── RK4 STEP FOR THE MS ODE ───────────────────────────────────────────────
+/**
+ * One RK4 step for dy/dN = F(N, y)
+ * State y = [Re_u, Im_u, Re_udot, Im_udot]   (dot = d/dN)
+ *
+ * The MS equation in conformal time:
+ *   u'' + (k² - z''/z) u = 0   ('' = d²/dτ²)
+ *
+ * Converting to N (using dτ/dN = 1/(aH)):
+ *   du/dN    = u' / (aH)                   [u' = du/dτ]
+ *   du'/dN   = u'' / (aH)
+ *            = -(k² - z''/z) u / (aH)
+ *
+ * So we track [u, u'] in τ but step in N:
+ *   dy[0]/dN = y[2] × (1/(aH))
+ *   dy[1]/dN = y[3] × (1/(aH))
+ *   dy[2]/dN = -(k² - z''/z) × y[0] × (1/(aH))
+ *   dy[3]/dN = -(k² - z''/z) × y[1] × (1/(aH))
+ *
+ * Here y[2],y[3] are u'_Re, u'_Im  (derivatives w.r.t. conformal time τ).
+ */
+function msDeriv(N, y, k, bg, idx) {
+  // Interpolate background at N
+  // (idx is the floor index in the uniform bg grid)
+  const i0  = Math.max(0, Math.min(bg.BG_N-2, idx));
+  const aH  = bg.bg_aH[i0];
+  const zzpp= bg.bg_zzpp[i0];   // z''/z in conformal time
+
+  const ooaH = 1.0 / aH;
+  const coeff = k*k - zzpp;   // = k² - z''/z
+
+  return [
+    y[2] * ooaH,
+    y[3] * ooaH,
+    -coeff * y[0] * ooaH,
+    -coeff * y[1] * ooaH,
+  ];
+}
+
+function rk4Step(N, y, dN, k, bg, idx) {
+  const k1 = msDeriv(N,        y,                              k, bg, idx);
+  const k2 = msDeriv(N+dN/2,   y.map((v,i)=>v+0.5*dN*k1[i]), k, bg, Math.min(idx+1, bg.BG_N-2));
+  const k3 = msDeriv(N+dN/2,   y.map((v,i)=>v+0.5*dN*k2[i]), k, bg, Math.min(idx+1, bg.BG_N-2));
+  const k4 = msDeriv(N+dN,     y.map((v,i)=>v+    dN*k3[i]), k, bg, Math.min(idx+2, bg.BG_N-2));
+  return y.map((v,i) => v + dN/6*(k1[i] + 2*k2[i] + 2*k3[i] + k4[i]));
+}
+
+// ── SOLVE ONE K-MODE ─────────────────────────────────────────────────────
+/**
+ * Integrate the MS equation for a single wavenumber k.
+ * k is in units of k★ (pivot wavenumber), so k★=1 always.
+ *
+ * The pivot mode exits the horizon at N = N★ before end of inflation,
+ * so k★ = (aH)★.
+ *
+ * For a general k: horizon exit at N_exit where k = aH(N_exit).
+ *
+ * Returns P_R(k) = k³/(2π²) × |u_k|²/z²  (evaluated well after exit).
+ */
+function solveOneMode(k, bg, aH_star, x0) {
+  // aH(N) = aH_star × exp(N - N_star)  (not exact but good for k search)
+  // Better: interpolate bg.bg_aH
+
+  // Step 1: Find N_ic where k/(aH) = x0  (start of integration)
+  // k_phys(N) = k × aH_star / aH(N)  ... actually k is physical
+  // We work in units where k★ = aH★, so k(phys) = k_dimless × aH_star
+
+  const k_phys = k * aH_star;  // physical wavenumber
+
+  // Find N_ic such that k_phys / aH(N_ic) = x0
+  // → aH(N_ic) = k_phys / x0
+  const aH_ic_target = k_phys / x0;
+
+  // Binary search in bg_aH for N where bg_aH ≈ aH_ic_target
+  // bg_aH is monotonically increasing (since aH ~ exp(N) grows)
+  let lo = 0, hi = bg.BG_N - 1;
+  if (aH_ic_target <= bg.bg_aH[0]) {
+    lo = 0;
+  } else if (aH_ic_target >= bg.bg_aH[hi]) {
+    // Mode never enters horizon (too large k relative to domain)
+    return null;
+  } else {
+    while (hi - lo > 1) {
+      const mid = (lo+hi)>>1;
+      if (bg.bg_aH[mid] <= aH_ic_target) lo = mid; else hi = mid;
+    }
+  }
+  const N_ic_idx = lo;
+  const N_ic     = bg.bg_N[N_ic_idx];
+  const tau_ic   = bg.bg_tau[N_ic_idx];
+
+  // Bunch-Davies IC at N_ic
+  let y = bunchDaviesIC(k_phys, tau_ic, 0, bg.bg_aH[N_ic_idx]);
+
+  // Step 2: Integrate from N_ic to N_max using RK4
+  // Use adaptive step: background grid step dN is fine enough.
+  // We integrate all the way to N_max to capture freeze-out.
+  let y_cur = [...y];
+  let idx   = N_ic_idx;
+
+  for (let i = N_ic_idx; i < bg.BG_N - 1; i++) {
+    const N_now = bg.bg_N[i];
+    const dN    = bg.dN;
+    y_cur = rk4Step(N_now, y_cur, dN, k_phys, bg, i);
+    idx   = i + 1;
+  }
+
+  // Step 3: Extract P_R = k³/(2π²) × |u_k|²/z²  at N_max (after freeze-out)
+  const mod2 = y_cur[0]*y_cur[0] + y_cur[1]*y_cur[1];   // |u_k|²
+  const z2   = bg.bg_z[bg.BG_N-1] * bg.bg_z[bg.BG_N-1];  // z² at N_max
+
+  const PR = k_phys*k_phys*k_phys / (2.0 * PI*PI) * mod2 / z2;
+
+  return PR;
+}
+
+// ── TENSOR MS SOLVER ─────────────────────────────────────────────────────
+// Tensor perturbation (gravitational waves) satisfies the same MS-type eq:
+//   v_k'' + (k² - a''/a) v_k = 0,   P_T = 8k³/(2π²) × |v_k|²/a²
+// a''/a = a²H²(2 - ε)  to leading order.
+function buildTensorPumpField(bg) {
+  // Returns bg_aapp: a''/a in conformal-time, for each bg grid point
+  // a''/a = (aH)²(2 - ε)
+  const aapp = new Float64Array(bg.BG_N);
+  for (let i = 0; i < bg.BG_N; i++) {
+    const eps = bg.bg_eps[i];
+    aapp[i] = bg.bg_aH[i] * bg.bg_aH[i] * (2.0 - eps);
+  }
+  return aapp;
+}
+
+function msTensorDeriv(N, y, k, bg, aapp, idx) {
+  const i0  = Math.max(0, Math.min(bg.BG_N-2, idx));
+  const aH  = bg.bg_aH[i0];
+  const zzpp = aapp[i0];
+  const ooaH = 1.0 / aH;
+  const coeff = k*k - zzpp;
+  return [
+    y[2] * ooaH,
+    y[3] * ooaH,
+    -coeff * y[0] * ooaH,
+    -coeff * y[1] * ooaH,
+  ];
+}
+
+function rk4TensorStep(N, y, dN, k, bg, aapp, idx) {
+  const k1 = msTensorDeriv(N,        y,                              k, bg, aapp, idx);
+  const k2 = msTensorDeriv(N+dN/2,   y.map((v,i)=>v+0.5*dN*k1[i]), k, bg, aapp, Math.min(idx+1, bg.BG_N-2));
+  const k3 = msTensorDeriv(N+dN/2,   y.map((v,i)=>v+0.5*dN*k2[i]), k, bg, aapp, Math.min(idx+1, bg.BG_N-2));
+  const k4 = msTensorDeriv(N+dN,     y.map((v,i)=>v+    dN*k3[i]), k, bg, aapp, Math.min(idx+2, bg.BG_N-2));
+  return y.map((v,i) => v + dN/6*(k1[i] + 2*k2[i] + 2*k3[i] + k4[i]));
+}
+
+function solveTensorMode(k, bg, aH_star, x0, aapp) {
+  const k_phys = k * aH_star;
+  const aH_ic_target = k_phys / x0;
+  let lo = 0, hi = bg.BG_N - 1;
+  if (aH_ic_target <= bg.bg_aH[0]) { lo = 0; }
+  else if (aH_ic_target >= bg.bg_aH[hi]) { return null; }
+  else {
+    while (hi - lo > 1) {
+      const mid = (lo+hi)>>1;
+      if (bg.bg_aH[mid] <= aH_ic_target) lo = mid; else hi = mid;
+    }
+  }
+  const N_ic_idx = lo;
+  const tau_ic   = bg.bg_tau[N_ic_idx];
+  // Bunch-Davies for tensor: v_k = e^{-ikτ}/√(2k)
+  const kabs = k_phys, amp = 1.0/Math.sqrt(2.0*kabs);
+  const phase = kabs * tau_ic;
+  let y_cur = [
+    amp*Math.cos(phase), amp*Math.sin(phase),
+    kabs*amp*Math.sin(phase), -kabs*amp*Math.cos(phase)
+  ];
+  for (let i = N_ic_idx; i < bg.BG_N - 1; i++) {
+    y_cur = rk4TensorStep(bg.bg_N[i], y_cur, bg.dN, k_phys, bg, aapp, i);
+  }
+  const mod2 = y_cur[0]*y_cur[0] + y_cur[1]*y_cur[1];
+  const a2   = Math.exp(2.0*bg.bg_N[bg.BG_N-1]);
+  // P_T = 8k³/(2π²) × |v_k|²/a²
+  return 8.0 * k_phys*k_phys*k_phys / (2.0*PI*PI) * mod2 / a2;
+}
+
+// ── MODE EVOLUTION TRACKER ────────────────────────────────────────────────
+// Track |u_k(N)| for the pivot mode and a super-horizon mode, for visualization
+function trackModeEvolution(bg, aH_star, x0) {
+  const kList  = [1.0, 10.0];   // k/k★: pivot and a super-horizon large-k mode
+  const kNames = ['k★ (pivot)', '10 k★'];
+  const result = [];
+  for (let ki = 0; ki < kList.length; ki++) {
+    const k = kList[ki];
+    const k_phys = k * aH_star;
+    const aH_ic_target = k_phys / x0;
+    let lo = 0, hi = bg.BG_N-1;
+    if (aH_ic_target <= bg.bg_aH[0]) { lo = 0; }
+    else if (aH_ic_target >= bg.bg_aH[hi]) { result.push(null); continue; }
+    else {
+      while (hi-lo > 1) { const mid=(lo+hi)>>1; if (bg.bg_aH[mid]<=aH_ic_target) lo=mid; else hi=mid; }
+    }
+    const N_ic_idx = lo;
+    const tau_ic   = bg.bg_tau[N_ic_idx];
+    const amp = 1.0/Math.sqrt(2.0*k_phys);
+    const phase = k_phys * tau_ic;
+    let y_cur = [
+      amp*Math.cos(phase), amp*Math.sin(phase),
+      k_phys*amp*Math.sin(phase), -k_phys*amp*Math.cos(phase)
+    ];
+    const Ns = [], mods = [], aHoverk = [];
+    // Sub-sample every 10 steps for performance
+    for (let i = N_ic_idx; i < bg.BG_N-1; i++) {
+      if ((i - N_ic_idx) % 5 === 0) {
+        Ns.push(bg.bg_N[i]);
+        mods.push(Math.sqrt(y_cur[0]*y_cur[0]+y_cur[1]*y_cur[1]));
+        aHoverk.push(bg.bg_aH[i]/k_phys);
+      }
+      y_cur = rk4Step(bg.bg_N[i], y_cur, bg.dN, k_phys, bg, i);
+    }
+    Ns.push(bg.bg_N[bg.BG_N-1]);
+    mods.push(Math.sqrt(y_cur[0]*y_cur[0]+y_cur[1]*y_cur[1]));
+    aHoverk.push(bg.bg_aH[bg.BG_N-1]/k_phys);
+    result.push({ N: Ns, mod: mods, aHoverk, name: kNames[ki] });
+  }
+  return result;
+}
+
+// ── MAIN MS RUNNER ───────────────────────────────────────────────────────
+function runMS() {
+  const enabled = document.getElementById("enableMS").checked;
+  if (!enabled || !computedData) return;
+
+  const d = computedData;
+  if (!d.pivots[state.Nstar]) { setMSStatus("No pivot found"); return; }
+
+  const Nk   = parseInt(document.getElementById("msNk").value)  || 30;
+  const x0   = parseFloat(document.getElementById("msX0").value) || 50;
+  const Nstar = state.Nstar;
+  const pivot = d.pivots[Nstar];
+
+  document.getElementById("msStatus").textContent = "⟳ Integrating…";
+  document.getElementById("msError").style.display = "none";
+
+  // Build background trajectory
+  const bg = buildBackground(currentVfn, d, Nstar);
+  if (!bg) { setMSStatus("Background reconstruction failed"); return; }
+
+  // Find bg index closest to N = Nstar for aH★
+  let star_idx = 0;
+  let best_diff = Infinity;
+  for (let i = 0; i < bg.BG_N; i++) {
+    const diff = Math.abs(bg.bg_N[i] - Nstar);
+    if (diff < best_diff) { best_diff = diff; star_idx = i; }
+  }
+  const aH_star = bg.bg_aH[star_idx];
+
+  // k-mode array: log-spaced over 3 decades around k★
+  const k_min_log = -2.0;
+  const k_max_log =  1.0;
+  const kArr = [];
+  for (let i = 0; i < Nk; i++) {
+    const logk = k_min_log + (k_max_log - k_min_log) * i / (Nk - 1);
+    kArr.push(Math.pow(10, logk));
+  }
+
+  // Scalar MS
+  const PR_ms_raw = [];
+  let errorCount = 0;
+  for (const k of kArr) {
+    try {
+      const pr = solveOneMode(k, bg, aH_star, x0);
+      PR_ms_raw.push((pr !== null && isFinite(pr) && pr > 0) ? pr : null);
+    } catch(e) { PR_ms_raw.push(null); errorCount++; }
+  }
+
+  // Find pivot value (k=1) more robustly — closest k to 1.0
+  let pivot_idx = 0;
+  let min_logk_dist = Infinity;
+  for (let i = 0; i < kArr.length; i++) {
+    const d_logk = Math.abs(Math.log10(kArr[i]));
+    if (PR_ms_raw[i] !== null && d_logk < min_logk_dist) {
+      min_logk_dist = d_logk; pivot_idx = i;
+    }
+  }
+  const PR_ms_at_pivot = PR_ms_raw[pivot_idx];
+  const norm_factor = (PR_ms_at_pivot && PR_ms_at_pivot > 0) ? As / PR_ms_at_pivot : 1;
+  const PR_ms_norm = PR_ms_raw.map(v => v ? v * norm_factor : null);
+
+  // Slow-roll reference: P_SR(k) = As × (k/k★)^(ns-1)
+  const ns_sr = pivot.ns;
+  const PR_sr = kArr.map(k => As * Math.pow(k, ns_sr - 1));
+
+  // Tensor SR reference: P_T_SR(k) = r × As × (k/k★)^(nt)
+  // where nt = -2ε★ (consistency relation) and r = 16ε★
+  const r_sr     = pivot.r;
+  const nt_sr    = -2.0 * pivot.eps_star;   // tensor tilt
+  const PT_sr_piv = r_sr * As;
+  const PT_sr    = kArr.map(k => PT_sr_piv * Math.pow(k, nt_sr));
+
+  // Relative error [%]
+  const rel_err = kArr.map((k, i) =>
+    (PR_ms_norm[i] !== null && PR_sr[i] > 0)
+      ? Math.abs(PR_ms_norm[i] - PR_sr[i]) / PR_sr[i] * 100.0
+      : null
+  );
+
+  // Fit n_s from MS spectrum (±0.5 decade window around k★)
+  // Also compute running: α = d n_s / d ln k from quadratic fit
+  const fit_pts = [];
+  for (let i = 0; i < kArr.length; i++) {
+    const logk = Math.log10(kArr[i]);
+    if (logk >= -0.5 && logk <= 0.5 && PR_ms_norm[i]) {
+      fit_pts.push({ logk, logPR: Math.log10(PR_ms_norm[i]) });
+    }
+  }
+  let ns_ms = null, alpha_ms = null;
+  if (fit_pts.length >= 4) {
+    // Quadratic regression: log P = A + B·(log k) + C·(log k)²
+    // Then n_s(k) = 1 + B + 2C·log(k),  and α = d n_s / d ln k = 2C / ln(10)
+    let n = fit_pts.length;
+    let sx=0, sy=0, sx2=0, sx3=0, sx4=0, sxy=0, sx2y=0;
+    for (const p of fit_pts) {
+      sx   += p.logk;  sy   += p.logPR;
+      sx2  += p.logk**2; sx3 += p.logk**3; sx4 += p.logk**4;
+      sxy  += p.logk*p.logPR; sx2y += p.logk**2*p.logPR;
+    }
+    // Solve 3×3 normal equations for A, B, C
+    const M = [
+      [n,   sx,  sx2],
+      [sx,  sx2, sx3],
+      [sx2, sx3, sx4],
+    ];
+    const rhs = [sy, sxy, sx2y];
+    // Gaussian elimination
+    for (let col = 0; col < 3; col++) {
+      let maxRow = col;
+      for (let r = col+1; r < 3; r++) if (Math.abs(M[r][col]) > Math.abs(M[maxRow][col])) maxRow = r;
+      [M[col], M[maxRow]] = [M[maxRow], M[col]];
+      [rhs[col], rhs[maxRow]] = [rhs[maxRow], rhs[col]];
+      for (let r = col+1; r < 3; r++) {
+        const f = M[r][col] / M[col][col];
+        for (let c = col; c < 3; c++) M[r][c] -= f * M[col][c];
+        rhs[r] -= f * rhs[col];
+      }
+    }
+    const coeff = [0,0,0];
+    for (let r = 2; r >= 0; r--) {
+      coeff[r] = rhs[r];
+      for (let c = r+1; c < 3; c++) coeff[r] -= M[r][c] * coeff[c];
+      coeff[r] /= M[r][r];
+    }
+    // coeff = [A, B, C]  (in log10 space)
+    ns_ms = 1.0 + coeff[1];   // at k★ (log k = 0)
+    alpha_ms = 2.0 * coeff[2] / Math.LN10;  // = d n_s / d ln k
+  } else if (fit_pts.length >= 3) {
+    let sx=0, sy=0, sxx=0, sxy=0, n=fit_pts.length;
+    for (const p of fit_pts) { sx+=p.logk; sy+=p.logPR; sxx+=p.logk*p.logk; sxy+=p.logk*p.logPR; }
+    ns_ms = 1.0 + (n*sxy - sx*sy) / (n*sxx - sx*sx);
+  }
+
+  // Tensor MS spectrum (numerically solved)
+  const aapp = buildTensorPumpField(bg);
+  const PT_ms_raw = [];
+  for (const k of kArr) {
+    try {
+      const pt = solveTensorMode(k, bg, aH_star, x0, aapp);
+      PT_ms_raw.push((pt !== null && isFinite(pt) && pt > 0) ? pt : null);
+    } catch(e) { PT_ms_raw.push(null); }
+  }
+  // Normalize tensor MS to match SR at k★
+  const PT_sr_pivot_val = PT_sr_piv;   // = r_sr × As = 16 ε★ As
+  const PT_ms_at_pivot = PT_ms_raw[pivot_idx];
+  const tnorm = (PT_ms_at_pivot && PT_ms_at_pivot > 0) ? PT_sr_pivot_val / PT_ms_at_pivot : 1;
+  const PT_ms_norm = PT_ms_raw.map(v => v ? v * tnorm : null);
+
+  // Tensor-to-scalar ratio from MS
+  const r_ms_arr = kArr.map((k,i) =>
+    (PR_ms_norm[i] && PT_ms_norm[i]) ? PT_ms_norm[i] / PR_ms_norm[i] : null
+  );
+  const r_ms_pivot = r_ms_arr[pivot_idx];
+  const r_ms = r_ms_pivot !== null ? r_ms_pivot : 16 * pivot.eps_star;
+
+  // Mode evolution for visualization
+  const modeEvol = trackModeEvolution(bg, aH_star, x0);
+
+  const PR_pivot_ms = PR_ms_norm[pivot_idx];
+
+  msResult = {
+    kArr, PR_ms: PR_ms_norm, PR_sr, PT_ms: PT_ms_norm, PT_sr,
+    rel_err, ns_ms, r_ms, alpha_ms, PR_pivot_ms, norm_factor, modeEvol, bg
+  };
+
+  updateMSPlot();
+  updateMSErrorPlot();
+  updateMSModePlot();
+  updateMSNsRunPlot();
+  updateMSObservables(msResult, ns_ms, r_ms, PR_pivot_ms, alpha_ms);
+  document.getElementById("msStatus").textContent =
+    `✓  ${Nk} modes  ·  x₀=${x0}` + (errorCount ? `  ·  ${errorCount} failed` : "");
+}
+
+function setMSStatus(msg) {
+  document.getElementById("msStatus").textContent = msg;
+}
+
+// ── UPDATE MS PLOT ────────────────────────────────────────────────────────
+function updateMSPlot() {
+  if (!msResult) return;
+  const { kArr, PR_ms, PR_sr, PT_ms, PT_sr, ns_ms } = msResult;
+
+  const kValid = [], prMS = [], prSR = [], ptMS = [], ptSR = [];
+  for (let i = 0; i < kArr.length; i++) {
+    if (PR_ms[i] !== null) {
+      kValid.push(kArr[i]);
+      prMS.push(PR_ms[i]);
+      prSR.push(PR_sr[i]);
+      ptMS.push(PT_ms[i]);
+      ptSR.push(PT_sr ? PT_sr[i] : null);
+    }
+  }
+
+  const traces = [
+    {
+      x: kValid, y: prMS,
+      type: "scatter", mode: "lines+markers",
+      name: "𝒫ℛ  MS (exact scalar)",
+      line: { color: COLORS.cyan, width: 2.5 },
+      marker: { size: 4, color: COLORS.cyan },
+      hovertemplate: "k/k★=%{x:.3f}<br>𝒫ℛ(MS)=%{y:.3e}<extra></extra>",
+    },
+    {
+      x: kValid, y: prSR,
+      type: "scatter", mode: "lines",
+      name: "𝒫ℛ  SR (power-law approx)",
+      line: { color: COLORS.amber, width: 1.8, dash: "dash" },
+      hovertemplate: "k/k★=%{x:.3f}<br>𝒫ℛ(SR)=%{y:.3e}<extra></extra>",
+    },
+    {
+      x: kValid, y: ptMS.filter(v=>v),
+      type: "scatter", mode: "lines+markers",
+      name: "𝒫T  MS (exact tensor)",
+      line: { color: COLORS.purple, width: 2 },
+      marker: { size: 4, color: COLORS.purple },
+      hovertemplate: "k/k★=%{x:.3f}<br>𝒫T(MS)=%{y:.3e}<extra></extra>",
+    },
+    {
+      x: kValid, y: kValid.map((k,i) => PT_sr ? PT_sr[i] : null).filter(v=>v),
+      type: "scatter", mode: "lines",
+      name: "𝒫T  SR (approx)",
+      line: { color: COLORS.pink, width: 1.5, dash: "dash" },
+      hovertemplate: "k/k★=%{x:.3f}<br>𝒫T(SR)=%{y:.3e}<extra></extra>",
+    },
+  ];
+
+  const annotations = [];
+  if (ns_ms !== null) {
+    const ns_sr = computedData.pivots[state.Nstar].ns;
+    annotations.push({
+      x: 0.02, y: 0.96, xref: "paper", yref: "paper",
+      text: `nₛ(MS) = ${ns_ms.toFixed(4)}    nₛ(SR) = ${ns_sr.toFixed(4)}    Δ = ${Math.abs(ns_ms-ns_sr).toFixed(4)}`,
+      showarrow: false,
+      font: { color: COLORS.cyan, size: 11, family: "'Share Tech Mono', monospace" },
+      bgcolor: "rgba(12,16,20,0.8)",
+      bordercolor: COLORS.cyan,
+      borderwidth: 1,
+      borderpad: 4,
+      xanchor: "left",
+    });
+  }
+
+  const shapes = [
+    { type:"line", xref:"paper", x0:0, x1:1, y0:As, y1:As,
+      line:{ color:COLORS.green, width:1, dash:"dot" } },
+    { type:"line", x0:1, x1:1, y0:0, y1:1, yref:"paper",
+      line:{ color:COLORS.amber, width:1.2, dash:"dash" } },
+  ];
+
+  Plotly.react("plotMSPS", traces, {
+    ...PLT,
+    xaxis: { ...PLT.xaxis, title:{text:"k / k★  (pivot-normalised)", font:{color:"#5a7080",size:11}}, type:"log" },
+    yaxis: { ...PLT.yaxis, title:{text:"𝒫(k)", font:{color:"#5a7080",size:11}}, type:"log" },
+    annotations,
+    shapes,
+    legend: { ...PLT.legend, x:0.01, y:0.45 },
+  }, PLOTLY_CONFIG);
+}
+
+// ── UPDATE RELATIVE ERROR PLOT ────────────────────────────────────────────
+function updateMSErrorPlot() {
+  if (!msResult) return;
+  const { kArr, rel_err } = msResult;
+  const kV = [], errV = [];
+  for (let i = 0; i < kArr.length; i++) {
+    if (rel_err[i] !== null) { kV.push(kArr[i]); errV.push(rel_err[i]); }
+  }
+  Plotly.react("plotMSError", [
+    {
+      x: kV, y: errV,
+      type: "scatter", mode: "lines+markers",
+      name: "% error",
+      line: { color: COLORS.green, width: 2 },
+      marker: { size: 4, color: COLORS.green },
+      fill: "tozeroy",
+      fillcolor: "rgba(48,208,128,0.10)",
+      hovertemplate: "k/k★=%{x:.3f}<br>err=%{y:.2f}%<extra></extra>",
+    },
+  ], {
+    ...PLT,
+    xaxis: { ...PLT.xaxis, title:{text:"k / k★", font:{color:"#5a7080",size:11}}, type:"log" },
+    yaxis: { ...PLT.yaxis, title:{text:"% relative error", font:{color:"#5a7080",size:11}} },
+    shapes: [
+      { type:"line", xref:"paper", x0:0, x1:1, y0:1, y1:1,
+        line:{color:COLORS.amber, width:1, dash:"dot"} },
+    ],
+    annotations: [
+      { x:0.5, y:1, xref:"paper", yref:"y",
+        text:"1% line", showarrow:false,
+        font:{color:COLORS.amber, size:9}, yanchor:"bottom" },
+    ],
+  }, PLOTLY_CONFIG);
+}
+
+// ── UPDATE MODE EVOLUTION PLOT ─────────────────────────────────────────────
+function updateMSModePlot() {
+  if (!msResult || !msResult.modeEvol) return;
+  const modes = msResult.modeEvol;
+  const modeColors = [COLORS.cyan, COLORS.amber];
+  const traces = [];
+  modes.forEach((m, idx) => {
+    if (!m) return;
+    traces.push({
+      x: m.N, y: m.mod,
+      type: "scatter", mode: "lines",
+      name: `|u_k(N)| · ${m.name}`,
+      line: { color: modeColors[idx % modeColors.length], width: 2 },
+      hovertemplate: `${m.name}<br>N=%{x:.2f}<br>|u_k|=%{y:.3e}<extra></extra>`,
+    });
+  });
+  const bg = msResult.bg;
+  // Mark horizon crossing for pivot (aH/k = 1)
+  const shapes = [], annotations = [];
+  modes.forEach((m, idx) => {
+    if (!m) return;
+    const cross_i = m.aHoverk.findIndex(v => v >= 1.0);
+    if (cross_i > 0) {
+      const Ncross = m.N[cross_i];
+      shapes.push({
+        type:"line", x0:Ncross, x1:Ncross, y0:0, y1:1, yref:"paper",
+        line:{color:modeColors[idx], width:1.2, dash:"dash"}
+      });
+      annotations.push({
+        x:Ncross, y:0.85-idx*0.12, yref:"paper",
+        text:"aH=k", showarrow:false,
+        font:{color:modeColors[idx], size:9}, xanchor:"left"
+      });
+    }
+  });
+  Plotly.react("plotMSMode", traces, {
+    ...PLT,
+    xaxis: { ...PLT.xaxis, title:{text:"N (e-folds from end)", font:{color:"#5a7080",size:11}} },
+    yaxis: { ...PLT.yaxis, title:{text:"|u_k(N)|", font:{color:"#5a7080",size:11}}, type:"log" },
+    shapes, annotations,
+    legend: { ...PLT.legend, x:0.6, y:0.99 },
+  }, PLOTLY_CONFIG);
+}
+
+// ── UPDATE MS OBSERVABLES ─────────────────────────────────────────────────
+function updateMSObservables(result, ns_ms, r_ms, PR_pivot, alpha_ms) {
+  function setCard(id, valId, val, ok) {
+    const card = document.getElementById(id);
+    const el   = document.getElementById(valId);
+    if (!card || !el) return;
+    el.textContent = val;
+    card.className = "obs-card" + (ok === true ? " ok" : ok === false ? " bad" : "");
+  }
+
+  if (!result) {
+    setCard("obs_ms_ns",    "val_ms_ns",    "—", null);
+    setCard("obs_ms_r",     "val_ms_r",     "—", null);
+    setCard("obs_ms_dns",   "val_ms_dns",   "—", null);
+    setCard("obs_ms_alpha", "val_ms_alpha", "—", null);
+    setCard("obs_ms_PR",    "val_ms_PR",    "—", null);
+    return;
+  }
+
+  const ns_sr = computedData?.pivots[state.Nstar]?.ns;
+  const dns = (ns_ms !== null && ns_sr) ? ns_ms - ns_sr : null;
+
+  const nsOk    = ns_ms !== null && ns_ms >= 0.960 && ns_ms <= 0.975;
+  const rOk     = r_ms  !== null && r_ms < 0.064;
+  const dnsOk   = dns   !== null && Math.abs(dns) < 0.005;
+  // Planck 2018 running constraint: α = −0.0045 ± 0.0067 (1σ) — consistent with 0
+  const alphaOk = alpha_ms !== null && Math.abs(alpha_ms) < 0.013;
+  const PRtxt   = PR_pivot ? PR_pivot.toExponential(3) : "—";
+  const PRok    = PR_pivot ? Math.abs(Math.log10(PR_pivot/As)) < 0.5 : null;
+
+  setCard("obs_ms_ns",    "val_ms_ns",    ns_ms   !== null ? ns_ms.toFixed(5)   : "—", nsOk);
+  setCard("obs_ms_r",     "val_ms_r",     r_ms    !== null ? r_ms.toFixed(5)    : "—", rOk);
+  setCard("obs_ms_dns",   "val_ms_dns",   dns     !== null ? (dns>=0?"+":"") + dns.toFixed(5) : "—", dnsOk);
+  setCard("obs_ms_alpha", "val_ms_alpha", alpha_ms !== null ? (alpha_ms>=0?"+":"") + alpha_ms.toExponential(3) : "—", alphaOk);
+  setCard("obs_ms_PR",    "val_ms_PR",    PRtxt, PRok);
+}
+
+// ── UPDATE RUNNING SPECTRAL INDEX PLOT ────────────────────────────────────
+function updateMSNsRunPlot() {
+  if (!msResult) return;
+  const { kArr, PR_ms } = msResult;
+
+  // Collect valid points
+  const lnk = [], lnP = [];
+  for (let i = 0; i < kArr.length; i++) {
+    if (PR_ms[i] !== null && PR_ms[i] > 0) {
+      lnk.push(Math.log(kArr[i]));
+      lnP.push(Math.log(PR_ms[i]));
+    }
+  }
+  if (lnk.length < 4) return;
+
+  // Numerical derivative: n_s(k) = 1 + d ln P_R / d ln k
+  // Use central differences, skip endpoints
+  const kPlot = [], nsRun = [];
+  for (let i = 1; i < lnk.length - 1; i++) {
+    const dlogP = (lnP[i+1] - lnP[i-1]) / (lnk[i+1] - lnk[i-1]);
+    kPlot.push(Math.exp(lnk[i]));
+    nsRun.push(1.0 + dlogP);
+  }
+
+  const ns_sr = computedData?.pivots[state.Nstar]?.ns ?? null;
+
+  Plotly.react("plotMSNsRun", [
+    {
+      x: kPlot, y: nsRun,
+      type: "scatter", mode: "lines+markers",
+      name: "nₛ(k)  MS",
+      line: { color: COLORS.cyan, width: 2.2 },
+      marker: { size: 4, color: COLORS.cyan },
+      hovertemplate: "k/k★=%{x:.3f}<br>nₛ=%{y:.5f}<extra></extra>",
+    },
+    ...(ns_sr ? [{
+      x: [kPlot[0], kPlot[kPlot.length-1]],
+      y: [ns_sr, ns_sr],
+      type: "scatter", mode: "lines",
+      name: `nₛ(SR) = ${ns_sr.toFixed(4)}`,
+      line: { color: COLORS.amber, width: 1.5, dash: "dash" },
+      hoverinfo: "skip",
+    }] : []),
+  ], {
+    ...PLT,
+    xaxis: { ...PLT.xaxis, title:{text:"k / k★", font:{color:"#5a7080",size:11}}, type:"log" },
+    yaxis: {
+      ...PLT.yaxis,
+      title:{text:"nₛ(k)", font:{color:"#5a7080",size:11}},
+      range: [0.92, 1.05],
+    },
+    shapes: [
+      // Planck 1σ band: 0.960–0.975
+      { type:"rect", xref:"paper", x0:0, x1:1,
+        y0:0.960, y1:0.975, yref:"y",
+        fillcolor:"rgba(48,208,128,0.12)",
+        line:{color:"rgba(48,208,128,0.3)", width:1},
+        layer:"below" },
+      // ns=1 line
+      { type:"line", xref:"paper", x0:0, x1:1, y0:1, y1:1,
+        line:{color:"#1c3040", width:1} },
+    ],
+    annotations: [
+      { x:1.0, y:0.9675, xref:"x", yref:"y",
+        text:"Planck 1σ band", showarrow:false,
+        font:{color:COLORS.green, size:9}, yanchor:"bottom", xanchor:"center" },
+    ],
+    legend: { ...PLT.legend, x:0.6, y:0.99 },
+  }, PLOTLY_CONFIG);
+}
+const _origRunUpdate = runUpdate;
+// Override scheduleUpdate to also trigger MS when enabled
+const _origScheduleUpdate = scheduleUpdate;
+function scheduleUpdate() {
+  clearTimeout(updateTimer);
+  updateTimer = setTimeout(() => {
+    runUpdate();
+    if (document.getElementById("enableMS")?.checked) scheduleMS();
+  }, 120);
+}
+
+// ── SYNC HELPERS FOR NEW SLIDERS ──────────────────────────────────────────
+// (syncManual and syncSlider already exist — they handle msNk and msX0 too)
+
+
+</script>
+</body>
+</html>
