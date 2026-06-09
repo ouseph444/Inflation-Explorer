@@ -4,6 +4,8 @@
 
 The **Inflation Parameter Visualizer** is an interactive, research-driven web application for exploring and analyzing cosmological inflation models within the slow-roll framework.
 
+🔗 **[Try it Live Here](https://ouseph444.github.io/Inflation-Explorer/)**
+
 ---
 
 ## 🚀 Flexible Model Input
